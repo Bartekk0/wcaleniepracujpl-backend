@@ -16,6 +16,12 @@ RUN pip install -r /tmp/requirements.txt
 
 COPY . /app
 
+RUN addgroup --system appgroup \
+    && adduser --system --ingroup appgroup appuser \
+    && chown -R appuser:appgroup /app
+
+USER appuser
+
 EXPOSE 8000
 
 # Expected FastAPI app path: app/main.py with `app = FastAPI()`
