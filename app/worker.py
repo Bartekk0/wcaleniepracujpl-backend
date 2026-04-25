@@ -15,6 +15,7 @@ celery_app.conf.update(
     enable_utc=True,
 )
 
+
 @celery_app.task
 def hello():
-    return 'hello world'
+    return "hello world"

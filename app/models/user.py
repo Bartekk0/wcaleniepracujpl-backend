@@ -30,7 +30,9 @@ class User(Base):
         default=UserRole.CANDIDATE,
         nullable=False,
     )
-    is_activated: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False) # False when email verification is implemented
+    is_activated: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )  # False when email verification is implemented
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

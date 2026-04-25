@@ -44,4 +44,3 @@ def safe_decode_token(token: str) -> dict[str, Any] | None:
         return decode_token(token)
     except JWTError:
         return None
-
