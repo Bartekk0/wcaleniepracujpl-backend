@@ -48,3 +48,7 @@ Thumbs.db
 
 # Docker local data (optional if created in repo)
 .docker/
+
+
+# Docs 
+docs/
