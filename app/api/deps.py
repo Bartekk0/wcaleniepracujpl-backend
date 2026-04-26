@@ -40,4 +40,3 @@ def get_current_user(
             detail="User account is not activated.",
         )
     return user
-
