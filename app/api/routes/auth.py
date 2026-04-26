@@ -1,9 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.security import create_access_token, create_refresh_token, verify_password
+from app.core.security import (
+    TokenExpiredError,
+    TokenInvalidError,
+    create_access_token,
+    create_refresh_token,
+    decode_token_strict,
+    verify_password,
+)
 from app.db.session import get_db
-from app.schemas.auth import LoginRequest, RegisterRequest, TokenPair
+from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenPair
 from app.schemas.user import UserOut
 from app.services.user_service import create_user, get_user_by_email
 
@@ -37,6 +44,52 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenPair:
             detail="Invalid email or password.",
         )
 
+    if not user.is_activated:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is not activated.",
+        )
+
+    return TokenPair(
+        access_token=create_access_token(subject=user.email),
+        refresh_token=create_refresh_token(subject=user.email),
+    )
+
+
+@router.post("/refresh", response_model=TokenPair)
+def refresh_tokens(payload: RefreshRequest, db: Session = Depends(get_db)) -> TokenPair:
+    try:
+        token_payload = decode_token_strict(payload.refresh_token)
+    except TokenExpiredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token expired.",
+        ) from exc
+    except TokenInvalidError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token.",
+        ) from exc
+
+    if token_payload.get("type") != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type.",
+        )
+
+    subject = token_payload.get("sub")
+    if not isinstance(subject, str):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token.",
+        )
+
+    user = get_user_by_email(db, subject)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token.",
+        )
     if not user.is_activated:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

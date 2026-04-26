@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from jose import JWTError, jwt
+from jose import ExpiredSignatureError, JWTError, jwt
 from passlib.context import CryptContext
 
 from app.core.config import settings
@@ -37,6 +37,27 @@ def create_refresh_token(subject: str) -> str:
 
 def decode_token(token: str) -> dict[str, Any]:
     return jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
+
+
+class TokenDecodeError(Exception):
+    pass
+
+
+class TokenExpiredError(TokenDecodeError):
+    pass
+
+
+class TokenInvalidError(TokenDecodeError):
+    pass
+
+
+def decode_token_strict(token: str) -> dict[str, Any]:
+    try:
+        return decode_token(token)
+    except ExpiredSignatureError as exc:
+        raise TokenExpiredError("Token has expired.") from exc
+    except JWTError as exc:
+        raise TokenInvalidError("Token is invalid.") from exc
 
 
 def safe_decode_token(token: str) -> dict[str, Any] | None:
