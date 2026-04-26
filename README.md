@@ -1,4 +1,4 @@
-# Job Board Backend
+# Job Board Backend (School project)
 
 Backend API for a Job Board MVP (candidate, recruiter, admin) built with Python and FastAPI.
 
