@@ -30,6 +30,7 @@ class User(Base):
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, name="user_role"),
         default=UserRole.CANDIDATE,
+        server_default=UserRole.CANDIDATE.name,
         nullable=False,
     )
     is_activated: Mapped[bool] = mapped_column(

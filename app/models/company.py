@@ -16,7 +16,11 @@ class Company(Base):
     __tablename__ = "companies"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    owner_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    owner_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     website_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)

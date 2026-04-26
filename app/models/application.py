@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -21,6 +21,11 @@ class ApplicationStatus(StrEnum):
 
 class Application(Base):
     __tablename__ = "applications"
+    __table_args__ = (
+        UniqueConstraint("job_id", "candidate_user_id", name="uq_applications_job_candidate"),
+        Index("ix_applications_job_status", "job_id", "status"),
+        Index("ix_applications_candidate_status", "candidate_user_id", "status"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     job_id: Mapped[int] = mapped_column(
@@ -37,6 +42,7 @@ class Application(Base):
     status: Mapped[ApplicationStatus] = mapped_column(
         Enum(ApplicationStatus, name="application_status"),
         default=ApplicationStatus.SUBMITTED,
+        server_default=ApplicationStatus.SUBMITTED.name,
         nullable=False,
     )
     created_at: Mapped[datetime] = mapped_column(
