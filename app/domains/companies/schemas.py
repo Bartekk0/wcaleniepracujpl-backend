@@ -21,3 +21,16 @@ class CompanyOut(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CompanyRecruiterAddRequest(BaseModel):
+    recruiter_user_id: int
+
+
+class CompanyRecruiterOut(BaseModel):
+    id: int
+    company_id: int
+    recruiter_user_id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

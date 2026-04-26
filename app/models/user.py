@@ -10,6 +10,7 @@ from app.db.base import Base
 if TYPE_CHECKING:
     from .candidate_profile import CandidateProfile
     from .company import Company
+    from .company_recruiter import CompanyRecruiter
 
 
 class UserRole(StrEnum):
@@ -50,4 +51,8 @@ class User(Base):
     )
     companies: Mapped[list["Company"]] = relationship(
         back_populates="owner",
+    )
+    company_memberships: Mapped[list["CompanyRecruiter"]] = relationship(
+        back_populates="recruiter",
+        cascade="all, delete-orphan",
     )

@@ -11,6 +11,11 @@ def get_user_by_email(db: Session, email: str) -> User | None:
     return db.execute(stmt).scalar_one_or_none()
 
 
+def get_user_by_id(db: Session, user_id: int) -> User | None:
+    stmt = select(User).where(User.id == user_id)
+    return db.execute(stmt).scalar_one_or_none()
+
+
 def create_user(
     db: Session,
     email: str,
