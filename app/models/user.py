@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, Enum, String, func
+from sqlalchemy import Boolean, DateTime, Enum, String, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -30,7 +30,7 @@ class User(Base):
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, name="user_role"),
         default=UserRole.CANDIDATE,
-        server_default=UserRole.CANDIDATE.name,
+        server_default=text("'CANDIDATE'"),
         nullable=False,
     )
     is_activated: Mapped[bool] = mapped_column(

@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, Text, UniqueConstraint, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -42,7 +42,7 @@ class Application(Base):
     status: Mapped[ApplicationStatus] = mapped_column(
         Enum(ApplicationStatus, name="application_status"),
         default=ApplicationStatus.SUBMITTED,
-        server_default=ApplicationStatus.SUBMITTED.name,
+        server_default=text("'SUBMITTED'"),
         nullable=False,
     )
     created_at: Mapped[datetime] = mapped_column(

@@ -8,6 +8,7 @@ Create Date: 2026-04-26 15:11:58.502917
 from typing import Sequence, Union
 
 from alembic import op
+import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
@@ -23,8 +24,8 @@ def upgrade() -> None:
     op.create_index('ix_applications_candidate_status', 'applications', ['candidate_user_id', 'status'], unique=False)
     op.create_index('ix_applications_job_status', 'applications', ['job_id', 'status'], unique=False)
     op.create_unique_constraint('uq_applications_job_candidate', 'applications', ['job_id', 'candidate_user_id'])
-    op.alter_column('applications', 'status', server_default='SUBMITTED')
-    op.alter_column('users', 'role', server_default='CANDIDATE')
+    op.alter_column('applications', 'status', server_default=sa.text("'SUBMITTED'"))
+    op.alter_column('users', 'role', server_default=sa.text("'CANDIDATE'"))
     op.drop_constraint(op.f('candidate_profiles_user_id_fkey'), 'candidate_profiles', type_='foreignkey')
     op.create_foreign_key(
         op.f('candidate_profiles_user_id_fkey'),
