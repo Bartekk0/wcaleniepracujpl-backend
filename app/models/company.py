@@ -36,7 +36,6 @@ class Company(Base):
     owner: Mapped["User"] = relationship(back_populates="companies")
     recruiter_memberships: Mapped[list["CompanyRecruiter"]] = relationship(
         back_populates="company",
-        cascade="all, delete-orphan",
     )
     jobs: Mapped[list["Job"]] = relationship(
         back_populates="company",

@@ -54,5 +54,4 @@ class User(Base):
     )
     company_memberships: Mapped[list["CompanyRecruiter"]] = relationship(
         back_populates="recruiter",
-        cascade="all, delete-orphan",
     )
