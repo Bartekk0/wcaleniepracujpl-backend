@@ -178,3 +178,86 @@ def test_application_endpoints_enforce_role_guards(
     assert recruiter_me_response.status_code == 403
     assert candidate_recruiter_view_response.status_code == 403
     assert recruiter_apply_response.json()["detail"] == "Insufficient permissions."
+
+
+def test_candidate_cannot_apply_twice_to_same_job(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.duplicate.recruiter@example.com",
+        role=UserRole.RECRUITER,
+    )
+    _, candidate_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.duplicate.candidate@example.com",
+        role=UserRole.CANDIDATE,
+    )
+    job_id = _create_job_for_recruiter(
+        client,
+        recruiter_token,
+        company_name="Duplicate Co",
+        job_title="Duplicate Guard Job",
+    )
+
+    first_response = client.post(
+        "/api/v1/applications",
+        json={"job_id": job_id, "cover_letter": "First try"},
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+    second_response = client.post(
+        "/api/v1/applications",
+        json={"job_id": job_id, "cover_letter": "Second try"},
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 409
+    assert second_response.json()["detail"] == "Application already exists for this job."
+
+
+def test_recruiter_cannot_view_applications_for_unowned_job(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, owner_recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.owner.guard@example.com",
+        role=UserRole.RECRUITER,
+    )
+    _, outsider_recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.outsider.guard@example.com",
+        role=UserRole.RECRUITER,
+    )
+    _, candidate_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.guard.viewer@example.com",
+        role=UserRole.CANDIDATE,
+    )
+    job_id = _create_job_for_recruiter(
+        client,
+        owner_recruiter_token,
+        company_name="Owner Protected Co",
+        job_title="Owner Protected Job",
+    )
+    apply_response = client.post(
+        "/api/v1/applications",
+        json={"job_id": job_id, "cover_letter": "Ownership visibility check"},
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+    assert apply_response.status_code == 201
+
+    outsider_view = client.get(
+        f"/api/v1/applications/jobs/{job_id}",
+        headers={"Authorization": f"Bearer {outsider_recruiter_token}"},
+    )
+
+    assert outsider_view.status_code == 403
+    assert outsider_view.json()["detail"] == "Recruiter has no access to this job."
