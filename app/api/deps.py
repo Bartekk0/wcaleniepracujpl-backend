@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import safe_decode_token
 from app.db.session import get_db
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.services.user_service import get_user_by_email
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -40,3 +40,27 @@ def get_current_user(
             detail="User account is not activated.",
         )
     return user
+
+
+def require_roles(*allowed_roles: UserRole):
+    def role_dependency(current_user: User = Depends(get_current_user)) -> User:
+        if current_user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions.",
+            )
+        return current_user
+
+    return role_dependency
+
+
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    return require_roles(UserRole.ADMIN)(current_user)
+
+
+def require_recruiter(current_user: User = Depends(get_current_user)) -> User:
+    return require_roles(UserRole.RECRUITER)(current_user)
+
+
+def require_candidate(current_user: User = Depends(get_current_user)) -> User:
+    return require_roles(UserRole.CANDIDATE)(current_user)
