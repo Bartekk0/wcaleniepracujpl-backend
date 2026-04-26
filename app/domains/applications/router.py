@@ -64,4 +64,3 @@ def list_job_applications_endpoint(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
     return [ApplicationOut.model_validate(application) for application in applications]
-

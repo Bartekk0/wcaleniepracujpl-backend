@@ -61,4 +61,3 @@ def list_recruiter_applications_for_job(
         raise PermissionError("Recruiter has no access to this job.")
 
     return list_applications_for_job(db, job_id=job_id)
-

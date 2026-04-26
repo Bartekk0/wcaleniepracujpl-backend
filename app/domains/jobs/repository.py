@@ -34,4 +34,3 @@ def list_jobs(db: Session) -> list[Job]:
 def get_job_by_id(db: Session, *, job_id: int) -> Job | None:
     stmt = select(Job).where(Job.id == job_id)
     return db.execute(stmt).scalar_one_or_none()
-

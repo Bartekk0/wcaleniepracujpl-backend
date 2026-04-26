@@ -66,7 +66,10 @@ def add_company_recruiter_endpoint(
         message = str(exc)
         if message == "Company not found.":
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message) from exc
-        if message in {"Recruiter is already a company member.", "Owner is already a company recruiter."}:
+        if message in {
+            "Recruiter is already a company member.",
+            "Owner is already a company recruiter.",
+        }:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=message) from exc
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message) from exc
 

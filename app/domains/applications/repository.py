@@ -47,4 +47,3 @@ def list_applications_for_candidate(db: Session, *, candidate_user_id: int) -> l
 def list_applications_for_job(db: Session, *, job_id: int) -> list[Application]:
     stmt = select(Application).where(Application.job_id == job_id).order_by(Application.id.desc())
     return list(db.execute(stmt).scalars().all())
-

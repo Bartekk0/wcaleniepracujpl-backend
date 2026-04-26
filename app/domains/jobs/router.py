@@ -42,4 +42,3 @@ def detail_job_endpoint(job_id: int, db: Session = Depends(get_db)) -> JobOut:
     if job is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found.")
     return JobOut.model_validate(job)
-

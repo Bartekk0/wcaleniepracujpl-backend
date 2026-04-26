@@ -43,4 +43,3 @@ def list_public_jobs(db: Session) -> list[Job]:
 
 def get_public_job(db: Session, *, job_id: int) -> Job | None:
     return get_job_by_id(db, job_id=job_id)
-

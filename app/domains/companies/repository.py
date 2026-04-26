@@ -28,11 +28,7 @@ def create_company(
 
 
 def list_companies_by_owner(db: Session, *, owner_user_id: int) -> list[Company]:
-    stmt = (
-        select(Company)
-        .where(Company.owner_user_id == owner_user_id)
-        .order_by(Company.id.desc())
-    )
+    stmt = select(Company).where(Company.owner_user_id == owner_user_id).order_by(Company.id.desc())
     return list(db.execute(stmt).scalars().all())
 
 
