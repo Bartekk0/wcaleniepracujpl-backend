@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
+    from .application import Application
     from .candidate_profile import CandidateProfile
     from .company import Company
     from .company_recruiter import CompanyRecruiter
@@ -54,4 +55,8 @@ class User(Base):
     )
     company_memberships: Mapped[list["CompanyRecruiter"]] = relationship(
         back_populates="recruiter",
+    )
+    applications: Mapped[list["Application"]] = relationship(
+        back_populates="candidate",
+        cascade="all, delete-orphan",
     )
