@@ -6,4 +6,3 @@ ALLOWED_STATUS_TRANSITIONS: dict[ApplicationStatus, set[ApplicationStatus]] = {
     ApplicationStatus.ACCEPTED: set(),
     ApplicationStatus.REJECTED: set(),
 }
-

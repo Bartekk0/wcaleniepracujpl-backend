@@ -416,10 +416,7 @@ def test_application_status_update_role_guards_and_access_control(
     assert candidate_update_response.status_code == 403
     assert candidate_update_response.json()["detail"] == "Insufficient permissions."
     assert outsider_update_response.status_code == 403
-    assert (
-        outsider_update_response.json()["detail"]
-        == "Recruiter has no access to this job."
-    )
+    assert outsider_update_response.json()["detail"] == "Recruiter has no access to this job."
     assert admin_update_response.status_code == 200
     assert admin_update_response.json()["status"] == "reviewing"
 
@@ -539,9 +536,15 @@ def test_application_history_endpoint_enforces_access_control(
     )
 
     assert outsider_recruiter_history_response.status_code == 403
-    assert outsider_recruiter_history_response.json()["detail"] == "Recruiter has no access to this job."
+    assert (
+        outsider_recruiter_history_response.json()["detail"]
+        == "Recruiter has no access to this job."
+    )
     assert other_candidate_history_response.status_code == 403
-    assert other_candidate_history_response.json()["detail"] == "Candidate has no access to this application."
+    assert (
+        other_candidate_history_response.json()["detail"]
+        == "Candidate has no access to this application."
+    )
 
 
 def test_admin_can_access_application_history(
@@ -663,4 +666,4 @@ def test_application_status_update_returns_404_when_application_job_missing(
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] in ["Job not found.", "Application not found."] 
+    assert response.json()["detail"] in ["Job not found.", "Application not found."]
