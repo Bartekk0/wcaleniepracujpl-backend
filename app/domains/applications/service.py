@@ -39,7 +39,7 @@ def apply_to_job(
     if job is None:
         raise ValueError("Job not found.")
     if job.moderation_status != JobModerationStatus.APPROVED:
-        raise ValueError("Job is not published.")
+        raise ValueError("Job not found.")
 
     validate_cv_object_key(
         candidate_user_id=candidate_user_id,
