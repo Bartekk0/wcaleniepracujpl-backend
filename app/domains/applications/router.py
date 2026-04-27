@@ -5,12 +5,14 @@ from app.api.deps import require_candidate, require_recruiter, require_roles
 from app.db.session import get_db
 from app.domains.applications.schemas import (
     ApplicationCreateRequest,
+    ApplicationEventOut,
     ApplicationOut,
     ApplicationStatusUpdateRequest,
 )
 from app.domains.applications.service import (
     apply_to_job,
     change_application_status,
+    get_application_history,
     list_my_applications,
     list_recruiter_applications_for_job,
 )
@@ -117,3 +119,26 @@ def update_application_status_endpoint(
         raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
     return ApplicationOut.model_validate(application)
+
+
+@router.get("/{application_id}/history", response_model=list[ApplicationEventOut])
+def application_history_endpoint(
+    application_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_roles(UserRole.CANDIDATE, UserRole.RECRUITER, UserRole.ADMIN)
+    ),
+) -> list[ApplicationEventOut]:
+    try:
+        events = get_application_history(
+            db,
+            actor_user_id=current_user.id,
+            actor_role=current_user.role,
+            application_id=application_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+    return [ApplicationEventOut.model_validate(event) for event in events]
