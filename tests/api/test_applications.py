@@ -1,5 +1,4 @@
 from fastapi.testclient import TestClient
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.models.job import Job
@@ -476,7 +475,9 @@ def test_application_status_update_returns_404_when_application_job_missing(
     assert apply_response.status_code == 201
     application_id = apply_response.json()["id"]
 
-    db_session.execute(text("DELETE FROM jobs WHERE id = :job_id"), {"job_id": job_id})
+    job = db_session.get(Job, job_id)
+    assert job is not None
+    db_session.delete(job)
     db_session.commit()
 
     response = client.patch(
