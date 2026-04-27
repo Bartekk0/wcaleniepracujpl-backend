@@ -46,16 +46,15 @@ def list_my_applications(db: Session, *, candidate_user_id: int) -> list[Applica
     return list_applications_for_candidate(db, candidate_user_id=candidate_user_id)
 
 
-def list_recruiter_applications_for_job(
+def _assert_recruiter_can_access_job(
     db: Session,
     *,
-    recruiter_user_id: int,
     job_id: int,
-) -> list[Application]:
+    recruiter_user_id: int,
+) -> None:
     job = get_job_by_id(db, job_id=job_id)
     if job is None:
         raise ValueError("Job not found.")
-
     has_access = job.company.owner_user_id == recruiter_user_id or is_company_member(
         db,
         company_id=job.company_id,
@@ -64,6 +63,14 @@ def list_recruiter_applications_for_job(
     if not has_access:
         raise PermissionError("Recruiter has no access to this job.")
 
+
+def list_recruiter_applications_for_job(
+    db: Session,
+    *,
+    recruiter_user_id: int,
+    job_id: int,
+) -> list[Application]:
+    _assert_recruiter_can_access_job(db, job_id=job_id, recruiter_user_id=recruiter_user_id)
     return list_applications_for_job(db, job_id=job_id)
 
 
@@ -83,16 +90,11 @@ def change_application_status(
         raise ValueError("Application not found.")
 
     if actor_role == UserRole.RECRUITER:
-        job = get_job_by_id(db, job_id=application.job_id)
-        if job is None:
-            raise ValueError("Job not found.")
-        has_access = job.company.owner_user_id == actor_user_id or is_company_member(
+        _assert_recruiter_can_access_job(
             db,
-            company_id=job.company_id,
+            job_id=application.job_id,
             recruiter_user_id=actor_user_id,
         )
-        if not has_access:
-            raise PermissionError("Recruiter has no access to this application.")
 
     allowed_targets = ALLOWED_STATUS_TRANSITIONS[application.status]
     if new_status not in allowed_targets:

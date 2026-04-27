@@ -1,6 +1,8 @@
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.models.job import Job
 from app.models.user import UserRole
 from app.services.user_service import create_user
 
@@ -417,7 +419,71 @@ def test_application_status_update_role_guards_and_access_control(
     assert outsider_update_response.status_code == 403
     assert (
         outsider_update_response.json()["detail"]
-        == "Recruiter has no access to this application."
+        == "Recruiter has no access to this job."
     )
     assert admin_update_response.status_code == 200
     assert admin_update_response.json()["status"] == "reviewing"
+
+
+def test_application_status_update_returns_404_for_missing_application(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.status.missing-app.recruiter@example.com",
+        role=UserRole.RECRUITER,
+    )
+
+    response = client.patch(
+        "/api/v1/applications/999999/status",
+        json={"status": "reviewing"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Application not found."
+
+
+def test_application_status_update_returns_404_when_application_job_missing(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.status.missing-job.recruiter@example.com",
+        role=UserRole.RECRUITER,
+    )
+    _, candidate_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.status.missing-job.candidate@example.com",
+        role=UserRole.CANDIDATE,
+    )
+    job_id = _create_job_for_recruiter(
+        client,
+        recruiter_token,
+        company_name="Missing Job Co",
+        job_title="Missing Job Status Flow",
+    )
+    apply_response = client.post(
+        "/api/v1/applications",
+        json={"job_id": job_id, "cover_letter": "Please review"},
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+    assert apply_response.status_code == 201
+    application_id = apply_response.json()["id"]
+
+    db_session.execute(text("DELETE FROM jobs WHERE id = :job_id"), {"job_id": job_id})
+    db_session.commit()
+
+    response = client.patch(
+        f"/api/v1/applications/{application_id}/status",
+        json={"status": "reviewing"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Job not found."
