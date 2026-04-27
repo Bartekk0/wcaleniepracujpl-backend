@@ -203,6 +203,158 @@ def test_public_and_candidate_can_list_and_read_job_details(
     assert public_detail_response.json()["id"] == job_id
 
 
+def test_recruiter_me_jobs_shows_owner_and_member_scope_only(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, owner_token = _create_user_and_login(
+        client,
+        db_session,
+        email="jobs.scope.owner@example.com",
+        role=UserRole.RECRUITER,
+    )
+    member_id, member_token = _create_user_and_login(
+        client,
+        db_session,
+        email="jobs.scope.member@example.com",
+        role=UserRole.RECRUITER,
+    )
+    _, outsider_token = _create_user_and_login(
+        client,
+        db_session,
+        email="jobs.scope.outsider@example.com",
+        role=UserRole.RECRUITER,
+    )
+
+    owner_company_response = client.post(
+        "/api/v1/companies",
+        json={"name": "Owner Scope Co"},
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    assert owner_company_response.status_code == 201
+    owner_company_id = owner_company_response.json()["id"]
+    owner_job_response = client.post(
+        "/api/v1/jobs",
+        json={
+            "company_id": owner_company_id,
+            "title": "Owner Scope Job",
+            "description": "Owned scope visibility",
+        },
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    assert owner_job_response.status_code == 201
+    owner_job_id = owner_job_response.json()["id"]
+
+    outsider_company_response = client.post(
+        "/api/v1/companies",
+        json={"name": "Member Scope Co"},
+        headers={"Authorization": f"Bearer {outsider_token}"},
+    )
+    assert outsider_company_response.status_code == 201
+    outsider_company_id = outsider_company_response.json()["id"]
+
+    add_member_response = client.post(
+        f"/api/v1/companies/{outsider_company_id}/recruiters",
+        json={"recruiter_user_id": member_id},
+        headers={"Authorization": f"Bearer {outsider_token}"},
+    )
+    assert add_member_response.status_code == 201
+    membership_job_response = client.post(
+        "/api/v1/jobs",
+        json={
+            "company_id": outsider_company_id,
+            "title": "Member Scope Job",
+            "description": "Membership scope visibility",
+        },
+        headers={"Authorization": f"Bearer {outsider_token}"},
+    )
+    assert membership_job_response.status_code == 201
+    membership_job_id = membership_job_response.json()["id"]
+
+    owner_scope_response = client.get(
+        "/api/v1/jobs/me",
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    member_scope_response = client.get(
+        "/api/v1/jobs/me",
+        headers={"Authorization": f"Bearer {member_token}"},
+    )
+    outsider_scope_response = client.get(
+        "/api/v1/jobs/me",
+        headers={"Authorization": f"Bearer {outsider_token}"},
+    )
+
+    assert owner_scope_response.status_code == 200
+    assert [job["id"] for job in owner_scope_response.json()] == [owner_job_id]
+    assert member_scope_response.status_code == 200
+    assert [job["id"] for job in member_scope_response.json()] == [membership_job_id]
+    assert outsider_scope_response.status_code == 200
+    assert [job["id"] for job in outsider_scope_response.json()] == [membership_job_id]
+
+
+def test_jobs_endpoint_supports_filters_and_pagination(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="jobs.filter.owner@example.com",
+        role=UserRole.RECRUITER,
+    )
+    company_response = client.post(
+        "/api/v1/companies",
+        json={"name": "Filter Co"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert company_response.status_code == 201
+    company_id = company_response.json()["id"]
+
+    first_job = client.post(
+        "/api/v1/jobs",
+        json={
+            "company_id": company_id,
+            "title": "Backend Python Engineer",
+            "location": "Remote",
+            "employment_type": "full-time",
+            "description": "First filtered job",
+        },
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    second_job = client.post(
+        "/api/v1/jobs",
+        json={
+            "company_id": company_id,
+            "title": "Frontend React Engineer",
+            "location": "Krakow",
+            "employment_type": "contract",
+            "description": "Second filtered job",
+        },
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert first_job.status_code == 201
+    assert second_job.status_code == 201
+    first_job_id = first_job.json()["id"]
+    second_job_id = second_job.json()["id"]
+
+    title_filtered = client.get("/api/v1/jobs?title_query=Python")
+    location_filtered = client.get("/api/v1/jobs?location=Krakow")
+    type_filtered = client.get("/api/v1/jobs?employment_type=full-time")
+    company_filtered = client.get(f"/api/v1/jobs?company_id={company_id}")
+    paginated = client.get("/api/v1/jobs?page=1&page_size=1")
+
+    assert title_filtered.status_code == 200
+    assert [job["id"] for job in title_filtered.json()] == [first_job_id]
+    assert location_filtered.status_code == 200
+    assert [job["id"] for job in location_filtered.json()] == [second_job_id]
+    assert type_filtered.status_code == 200
+    assert [job["id"] for job in type_filtered.json()] == [first_job_id]
+    assert company_filtered.status_code == 200
+    assert len(company_filtered.json()) == 2
+    assert paginated.status_code == 200
+    assert len(paginated.json()) == 1
+
+
 def test_job_detail_returns_404_for_missing_job(client: TestClient) -> None:
     response = client.get("/api/v1/jobs/99999")
 

@@ -138,6 +138,72 @@ def test_recruiter_can_list_applications_for_owned_job(
     assert payload[0]["status"] == "submitted"
 
 
+def test_application_endpoints_support_status_filters(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.filter.recruiter@example.com",
+        role=UserRole.RECRUITER,
+    )
+    _, candidate_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.filter.candidate@example.com",
+        role=UserRole.CANDIDATE,
+    )
+    job_id = _create_job_for_recruiter(
+        client,
+        recruiter_token,
+        company_name="Filter Apps Co",
+        job_title="Filter Apps Job",
+    )
+    apply_response = client.post(
+        "/api/v1/applications",
+        json={"job_id": job_id, "cover_letter": "Filter me"},
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+    assert apply_response.status_code == 201
+    application_id = apply_response.json()["id"]
+
+    review_response = client.patch(
+        f"/api/v1/applications/{application_id}/status",
+        json={"status": "reviewing"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert review_response.status_code == 200
+
+    candidate_reviewing = client.get(
+        "/api/v1/applications/me?status=reviewing",
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+    candidate_submitted = client.get(
+        "/api/v1/applications/me?status=submitted",
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+    recruiter_reviewing = client.get(
+        f"/api/v1/applications/jobs/{job_id}?status=reviewing",
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    recruiter_submitted = client.get(
+        f"/api/v1/applications/jobs/{job_id}?status=submitted",
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+
+    assert candidate_reviewing.status_code == 200
+    assert len(candidate_reviewing.json()) == 1
+    assert candidate_reviewing.json()[0]["status"] == "reviewing"
+    assert candidate_submitted.status_code == 200
+    assert candidate_submitted.json() == []
+    assert recruiter_reviewing.status_code == 200
+    assert len(recruiter_reviewing.json()) == 1
+    assert recruiter_reviewing.json()[0]["status"] == "reviewing"
+    assert recruiter_submitted.status_code == 200
+    assert recruiter_submitted.json() == []
+
+
 def test_application_endpoints_enforce_role_guards(
     client: TestClient,
     db_session: Session,
@@ -179,6 +245,53 @@ def test_application_endpoints_enforce_role_guards(
     assert recruiter_me_response.status_code == 403
     assert candidate_recruiter_view_response.status_code == 403
     assert recruiter_apply_response.json()["detail"] == "Insufficient permissions."
+
+
+def test_application_status_filter_rejects_invalid_values(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, candidate_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.filter.invalid.candidate@example.com",
+        role=UserRole.CANDIDATE,
+    )
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.filter.invalid.recruiter@example.com",
+        role=UserRole.RECRUITER,
+    )
+    _, other_recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.filter.invalid.other@example.com",
+        role=UserRole.RECRUITER,
+    )
+    job_id = _create_job_for_recruiter(
+        client,
+        recruiter_token,
+        company_name="Invalid Filter Co",
+        job_title="Invalid Filter Job",
+    )
+
+    invalid_candidate_filter = client.get(
+        "/api/v1/applications/me?status=not-a-status",
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+    invalid_recruiter_filter = client.get(
+        f"/api/v1/applications/jobs/{job_id}?status=not-a-status",
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    forbidden_recruiter_scope = client.get(
+        f"/api/v1/applications/jobs/{job_id}?status=reviewing",
+        headers={"Authorization": f"Bearer {other_recruiter_token}"},
+    )
+
+    assert invalid_candidate_filter.status_code == 422
+    assert invalid_recruiter_filter.status_code == 422
+    assert forbidden_recruiter_scope.status_code == 403
 
 
 def test_candidate_cannot_apply_twice_to_same_job(
