@@ -179,3 +179,120 @@ def test_admin_endpoints_enforce_admin_role_guard(
     assert recruiter_response.status_code == 403
     assert candidate_response.status_code == 403
     assert recruiter_response.json()["detail"] == "Insufficient permissions."
+
+
+def test_user_can_create_report_and_admin_can_resolve_with_audit_log(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    admin_id, admin_token = _create_user_and_login(
+        client,
+        db_session,
+        email="admin.reports@example.com",
+        role=UserRole.ADMIN,
+    )
+    _, candidate_token = _create_user_and_login(
+        client,
+        db_session,
+        email="candidate.reports@example.com",
+        role=UserRole.CANDIDATE,
+    )
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="recruiter.report.target@example.com",
+        role=UserRole.RECRUITER,
+    )
+    job_id = _create_job_for_recruiter(
+        client,
+        recruiter_token,
+        company_name="Reportable Co",
+        job_title="Potentially Misleading Job",
+    )
+
+    create_response = client.post(
+        f"/api/v1/admin/reports/jobs/{job_id}",
+        json={"reason": "The posting details look suspicious."},
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+    assert create_response.status_code == 201
+    report_id = create_response.json()["id"]
+    assert create_response.json()["status"] == "open"
+
+    resolve_response = client.post(
+        f"/api/v1/admin/reports/{report_id}/resolve",
+        json={"note": "Reviewed and fixed."},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resolve_response.status_code == 200
+    assert resolve_response.json()["report"]["status"] == "resolved"
+    assert resolve_response.json()["report"]["resolved_by_admin_user_id"] == admin_id
+    assert resolve_response.json()["audit_log"]["action"] == "report_resolved"
+
+    audit_rows = list(db_session.execute(select(AdminAuditLog)).scalars().all())
+    assert any(
+        row.target_type == "report"
+        and row.target_id == report_id
+        and row.action == "report_resolved"
+        for row in audit_rows
+    )
+
+
+def test_admin_report_actions_enforce_role_and_handled_state(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, admin_token = _create_user_and_login(
+        client,
+        db_session,
+        email="admin.report.guards@example.com",
+        role=UserRole.ADMIN,
+    )
+    _, candidate_token = _create_user_and_login(
+        client,
+        db_session,
+        email="candidate.report.guards@example.com",
+        role=UserRole.CANDIDATE,
+    )
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="recruiter.report.guards@example.com",
+        role=UserRole.RECRUITER,
+    )
+    job_id = _create_job_for_recruiter(
+        client,
+        recruiter_token,
+        company_name="Report Guard Co",
+        job_title="Guarded Report Job",
+    )
+    report_response = client.post(
+        f"/api/v1/admin/reports/jobs/{job_id}",
+        json={"reason": "Spam content in description."},
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+    assert report_response.status_code == 201
+    report_id = report_response.json()["id"]
+
+    forbidden_response = client.post(
+        f"/api/v1/admin/reports/{report_id}/dismiss",
+        json={"note": "Should fail for candidate."},
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+    assert forbidden_response.status_code == 403
+
+    first_dismiss_response = client.post(
+        f"/api/v1/admin/reports/{report_id}/dismiss",
+        json={"note": "Reviewed and dismissed."},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert first_dismiss_response.status_code == 200
+    assert first_dismiss_response.json()["report"]["status"] == "dismissed"
+
+    second_dismiss_response = client.post(
+        f"/api/v1/admin/reports/{report_id}/dismiss",
+        json={"note": "Duplicate moderation."},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert second_dismiss_response.status_code == 409
+    assert second_dismiss_response.json()["detail"] == "Report is already handled."
