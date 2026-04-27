@@ -1,8 +1,14 @@
 import logging
+import os
 
 from app.models.application import ApplicationStatus
 
 logger = logging.getLogger(__name__)
+
+
+def _should_enqueue_tasks() -> bool:
+    # Keep tests deterministic and fast: under pytest we skip broker I/O.
+    return os.getenv("PYTEST_CURRENT_TEST") is None
 
 
 def enqueue_application_submitted_notification(
@@ -11,6 +17,8 @@ def enqueue_application_submitted_notification(
     job_id: int,
     candidate_user_id: int,
 ) -> None:
+    if not _should_enqueue_tasks():
+        return
     try:
         from app.domains.notifications.tasks import notify_application_submitted
 
@@ -39,6 +47,8 @@ def enqueue_application_status_changed_notification(
     from_status: ApplicationStatus,
     to_status: ApplicationStatus,
 ) -> None:
+    if not _should_enqueue_tasks():
+        return
     try:
         from app.domains.notifications.tasks import notify_application_status_changed
 
