@@ -19,7 +19,7 @@ from app.domains.notifications.service import (
     enqueue_application_status_changed_notification,
     enqueue_application_submitted_notification,
 )
-from app.domains.applications.cv_presign import validate_cv_object_key
+from app.domains.applications.cv_presign import presigned_download_cv, validate_cv_object_key
 from app.domains.companies.repository import is_company_member
 from app.domains.jobs.repository import get_job_by_id
 from app.domains.applications.schemas import ApplicationCreateRequest
@@ -177,6 +177,36 @@ def change_application_status(
         to_status=new_status,
     )
     return updated
+
+
+def presign_application_cv_download(
+    db: Session,
+    *,
+    actor_user_id: int,
+    actor_role: UserRole,
+    application_id: int,
+) -> tuple[str, int]:
+    application = get_application_by_id(db, application_id=application_id)
+    if application is None:
+        raise ValueError("Application not found.")
+
+    if application.cv_object_key is None:
+        raise ValueError("No CV uploaded for this application.")
+
+    if actor_role == UserRole.CANDIDATE and application.candidate_user_id != actor_user_id:
+        raise PermissionError("Candidate has no access to this application.")
+
+    if actor_role == UserRole.RECRUITER:
+        _assert_recruiter_can_access_job(
+            db,
+            job_id=application.job_id,
+            recruiter_user_id=actor_user_id,
+        )
+
+    if actor_role not in (UserRole.ADMIN, UserRole.RECRUITER, UserRole.CANDIDATE):
+        raise PermissionError("Insufficient permissions.")
+
+    return presigned_download_cv(object_key=application.cv_object_key)
 
 
 def get_application_history(

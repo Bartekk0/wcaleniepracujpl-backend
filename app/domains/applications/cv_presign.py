@@ -6,7 +6,7 @@ import re
 import uuid
 
 from app.core.config import settings
-from app.storage.minio_client import presigned_put_object
+from app.storage.minio_client import presigned_get_object, presigned_put_object
 
 _SAFE_FILENAME = re.compile(r"[^a-zA-Z0-9._-]")
 
@@ -40,3 +40,13 @@ def presigned_upload_cv(*, candidate_user_id: int, filename: str) -> tuple[str, 
         expires_seconds=expires,
     )
     return object_key, upload_url, expires
+
+
+def presigned_download_cv(*, object_key: str) -> tuple[str, int]:
+    expires = 3600
+    download_url = presigned_get_object(
+        settings.minio_bucket,
+        object_key,
+        expires_seconds=expires,
+    )
+    return download_url, expires
