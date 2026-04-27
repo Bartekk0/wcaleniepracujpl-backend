@@ -7,12 +7,21 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_recruiter
 from app.db.session import get_db
-from app.domains.jobs.schemas import JobCreateRequest, JobListQueryParams, JobOut
+from app.domains.jobs.schemas import (
+    JobCreateRequest,
+    JobListQueryParams,
+    JobOut,
+    JobPartialUpdateRequest,
+    JobReplaceRequest,
+)
 from app.domains.jobs.service import (
     create_recruiter_job,
+    delete_recruiter_job,
     get_public_job,
     list_public_jobs,
     list_recruiter_jobs,
+    patch_recruiter_job,
+    replace_recruiter_job,
 )
 from app.models.user import User
 
@@ -79,6 +88,64 @@ def list_recruiter_jobs_endpoint(
 ) -> list[JobOut]:
     jobs = list_recruiter_jobs(db, recruiter_user_id=current_user.id, query=query)
     return [JobOut.model_validate(job) for job in jobs]
+
+
+@router.put("/{job_id}", response_model=JobOut)
+def replace_job_endpoint(
+    job_id: int,
+    payload: JobReplaceRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_recruiter),
+) -> JobOut:
+    try:
+        job = replace_recruiter_job(
+            db,
+            recruiter_user_id=current_user.id,
+            job_id=job_id,
+            payload=payload,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return JobOut.model_validate(job)
+
+
+@router.patch("/{job_id}", response_model=JobOut)
+def patch_job_endpoint(
+    job_id: int,
+    payload: JobPartialUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_recruiter),
+) -> JobOut:
+    try:
+        job = patch_recruiter_job(
+            db,
+            recruiter_user_id=current_user.id,
+            job_id=job_id,
+            payload=payload,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return JobOut.model_validate(job)
+
+
+@router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_job_endpoint(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_recruiter),
+) -> None:
+    try:
+        delete_recruiter_job(db, recruiter_user_id=current_user.id, job_id=job_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @router.get("/{job_id}", response_model=JobOut)

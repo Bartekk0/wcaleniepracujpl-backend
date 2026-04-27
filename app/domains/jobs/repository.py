@@ -101,6 +101,11 @@ def get_approved_job_by_id(db: Session, *, job_id: int) -> Job | None:
     return db.execute(stmt).scalar_one_or_none()
 
 
+def delete_job(db: Session, *, job: Job) -> None:
+    db.delete(job)
+    db.commit()
+
+
 def list_jobs_for_recruiter_scope(
     db: Session,
     *,
