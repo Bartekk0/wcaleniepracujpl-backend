@@ -1,10 +1,14 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.models.application import ApplicationStatus
+
+if TYPE_CHECKING:
+    from app.models.application import Application
 
 
 class ApplicationEvent(Base):
