@@ -54,7 +54,9 @@ def _notify_application_submitted_impl(
         )
         application = db.execute(stmt).unique().scalar_one_or_none()
         if application is None:
-            logger.warning("Application not found; skip notification", extra={"application_id": application_id})
+            logger.warning(
+                "Application not found; skip notification", extra={"application_id": application_id}
+            )
             return
         if application.job_id != job_id or application.candidate_user_id != candidate_user_id:
             logger.warning(
@@ -134,10 +136,15 @@ def _notify_application_status_changed_impl(
         )
         application = db.execute(stmt).unique().scalar_one_or_none()
         if application is None:
-            logger.warning("Application not found; skip notification", extra={"application_id": application_id})
+            logger.warning(
+                "Application not found; skip notification", extra={"application_id": application_id}
+            )
             return
         if application.job_id != job_id or application.candidate_user_id != candidate_user_id:
-            logger.warning("Application id mismatch; skip notification", extra={"application_id": application_id})
+            logger.warning(
+                "Application id mismatch; skip notification",
+                extra={"application_id": application_id},
+            )
             return
 
         actor = db.get(User, actor_user_id)

@@ -31,7 +31,9 @@ def _create_user_and_login(
     return user.id, login_response.json()["access_token"]
 
 
-def test_candidate_cv_presign_returns_upload_metadata(monkeypatch, client: TestClient, db_session: Session) -> None:
+def test_candidate_cv_presign_returns_upload_metadata(
+    monkeypatch, client: TestClient, db_session: Session
+) -> None:
     def _fake_presigned_upload_cv(*, candidate_user_id: int, filename: str) -> tuple[str, str, int]:
         return (
             f"cv/{candidate_user_id}/deadbeef_resume.pdf",
