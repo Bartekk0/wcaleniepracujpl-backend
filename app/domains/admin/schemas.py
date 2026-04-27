@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.job import JobModerationStatus
+from app.models.report import ReportStatus
 
 
 class ModerationDecisionRequest(BaseModel):
@@ -40,4 +41,32 @@ class AdminAuditLogOut(BaseModel):
 
 class ModerationActionResponse(BaseModel):
     job: ModerationJobOut
+    audit_log: AdminAuditLogOut
+
+
+class CreateReportRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=4000)
+
+
+class ReportOut(BaseModel):
+    id: int
+    job_id: int
+    reporter_user_id: int
+    reason: str
+    status: ReportStatus
+    resolution_note: str | None
+    resolved_by_admin_user_id: int | None
+    resolved_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ReportDecisionRequest(BaseModel):
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class ReportActionResponse(BaseModel):
+    report: ReportOut
     audit_log: AdminAuditLogOut
