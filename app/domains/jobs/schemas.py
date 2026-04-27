@@ -4,6 +4,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.domains.jobs.tags import normalize_tag_slug
 
+MAX_JOB_TAGS = 24
+
 
 class JobCreateRequest(BaseModel):
     company_id: int
@@ -16,8 +18,8 @@ class JobCreateRequest(BaseModel):
     @field_validator("tags")
     @classmethod
     def validate_tags(cls, value: list[str]) -> list[str]:
-        if len(value) > 24:
-            raise ValueError("Too many tags (maximum 24).")
+        if len(value) > MAX_JOB_TAGS:
+            raise ValueError(f"Too many tags (maximum {MAX_JOB_TAGS}).")
         seen: set[str] = set()
         normalized_order: list[str] = []
         for raw in value:
@@ -54,6 +56,8 @@ class JobListQueryParams(BaseModel):
     @field_validator("tags")
     @classmethod
     def validate_tag_filters(cls, value: list[str]) -> list[str]:
+        if len(value) > MAX_JOB_TAGS:
+            raise ValueError(f"Too many tags (maximum {MAX_JOB_TAGS}).")
         seen: list[str] = []
         seen_set: set[str] = set()
         for raw in value:

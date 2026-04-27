@@ -479,6 +479,13 @@ def test_public_jobs_can_filter_by_tags_and_pending_jobs_are_excluded(
     assert [j["id"] for j in python_any.json()] == [job_a_id]
 
 
+def test_public_jobs_tag_filter_rejects_more_than_max_tags(client: TestClient) -> None:
+    params = [("tag", f"t{i}") for i in range(25)]
+    response = client.get("/api/v1/jobs", params=params)
+
+    assert response.status_code == 422
+
+
 def test_job_detail_returns_404_for_missing_job(client: TestClient) -> None:
     response = client.get("/api/v1/jobs/99999")
 

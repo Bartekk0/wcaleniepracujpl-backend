@@ -1,6 +1,8 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_recruiter
@@ -26,15 +28,18 @@ def job_list_query_params(
     page_size: int = Query(20, ge=1, le=100),
     tag: list[str] | None = Query(None),
 ) -> JobListQueryParams:
-    return JobListQueryParams(
-        company_id=company_id,
-        title_query=title_query,
-        location=location,
-        employment_type=employment_type,
-        tags=list(tag) if tag else [],
-        page=page,
-        page_size=page_size,
-    )
+    try:
+        return JobListQueryParams(
+            company_id=company_id,
+            title_query=title_query,
+            location=location,
+            employment_type=employment_type,
+            tags=list(tag) if tag else [],
+            page=page,
+            page_size=page_size,
+        )
+    except ValidationError as exc:
+        raise RequestValidationError(exc.errors()) from exc
 
 
 @router.post("", response_model=JobOut, status_code=status.HTTP_201_CREATED)
