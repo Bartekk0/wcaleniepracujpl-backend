@@ -15,11 +15,8 @@ class EmailDeliveryError(Exception):
 
 
 def _smtp_settings_ready() -> bool:
-    return bool(
-        settings.smtp_host
-        and settings.smtp_from_address
-        and (settings.smtp_username is None or settings.smtp_password is not None)
-    )
+    auth_pair_valid = (settings.smtp_username is None) == (settings.smtp_password is None)
+    return bool(settings.smtp_host and settings.smtp_from_address and auth_pair_valid)
 
 
 def deliver_plain_email(*, to_addresses: Sequence[str], subject: str, body: str) -> None:
