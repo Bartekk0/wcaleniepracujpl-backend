@@ -95,3 +95,70 @@ def test_admin_moderation_updates_job_state_and_writes_audit_log(
     assert len(logs) == 1
     assert logs[0].admin_user_id == admin_id
     assert logs[0].action == "job_approved"
+
+
+def test_admin_reject_updates_job_state_and_writes_audit_log(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    admin_id, admin_token = _create_user_and_login(
+        client,
+        db_session,
+        email="e2e.admin.reject@example.com",
+        role=UserRole.ADMIN,
+    )
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="e2e.recruiter.reject@example.com",
+        role=UserRole.RECRUITER,
+    )
+
+    company_response = client.post(
+        "/api/v1/companies",
+        json={"name": "Reject E2E Co"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert company_response.status_code == 201
+    company_id = company_response.json()["id"]
+
+    job_response = client.post(
+        "/api/v1/jobs",
+        json={
+            "company_id": company_id,
+            "title": "Reject E2E Job",
+            "description": "Should be blocked by admin.",
+        },
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert job_response.status_code == 201
+    job_id = job_response.json()["id"]
+
+    reject_response = client.post(
+        f"/api/v1/admin/moderation/jobs/{job_id}/reject",
+        json={"note": "Rejected in e2e flow"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert reject_response.status_code == 200
+    payload = reject_response.json()
+    assert payload["job"]["moderation_status"] == "rejected"
+    assert payload["audit_log"]["action"] == "job_rejected"
+
+    job = db_session.get(Job, job_id)
+    assert job is not None
+    assert job.moderation_status.value == "rejected"
+    assert job.moderated_by_admin_user_id == admin_id
+
+    logs = list(
+        db_session.execute(
+            select(AdminAuditLog).where(
+                AdminAuditLog.target_type == "job",
+                AdminAuditLog.target_id == job_id,
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(logs) == 1
+    assert logs[0].admin_user_id == admin_id
+    assert logs[0].action == "job_rejected"

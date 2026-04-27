@@ -71,3 +71,33 @@ def test_deliver_plain_email_smtp_failure_raises(monkeypatch) -> None:
         smtp_ctx.__exit__.return_value = None
         smtp_ctor.return_value = smtp_ctx
         deliver_plain_email(to_addresses=["t@test"], subject="S", body="B")
+
+
+def test_deliver_plain_email_smtp_logs_when_only_password_is_set(monkeypatch, caplog) -> None:
+    monkeypatch.setattr(transport.settings, "email_transport", "smtp")
+    monkeypatch.setattr(transport.settings, "smtp_host", "smtp.test")
+    monkeypatch.setattr(transport.settings, "smtp_from_address", "from@test")
+    monkeypatch.setattr(transport.settings, "smtp_username", None)
+    monkeypatch.setattr(transport.settings, "smtp_password", "pass")
+
+    with patch("app.domains.notifications.transport.smtplib.SMTP") as smtp_ctor:
+        with caplog.at_level("WARNING", logger=transport.logger.name):
+            deliver_plain_email(to_addresses=["a@example.com"], subject="Hello", body="Body")
+
+    smtp_ctor.assert_not_called()
+    assert "SMTP settings are incomplete" in caplog.text
+
+
+def test_deliver_plain_email_smtp_logs_when_only_username_is_set(monkeypatch, caplog) -> None:
+    monkeypatch.setattr(transport.settings, "email_transport", "smtp")
+    monkeypatch.setattr(transport.settings, "smtp_host", "smtp.test")
+    monkeypatch.setattr(transport.settings, "smtp_from_address", "from@test")
+    monkeypatch.setattr(transport.settings, "smtp_username", "user")
+    monkeypatch.setattr(transport.settings, "smtp_password", None)
+
+    with patch("app.domains.notifications.transport.smtplib.SMTP") as smtp_ctor:
+        with caplog.at_level("WARNING", logger=transport.logger.name):
+            deliver_plain_email(to_addresses=["a@example.com"], subject="Hello", body="Body")
+
+    smtp_ctor.assert_not_called()
+    assert "SMTP settings are incomplete" in caplog.text
