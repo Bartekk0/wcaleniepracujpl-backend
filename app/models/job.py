@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.models.job_tag import JobTag, job_tag_map
+
 from app.db.base import Base
 
 if TYPE_CHECKING:
@@ -65,3 +67,12 @@ class Job(Base):
         back_populates="job",
         cascade="all, delete-orphan",
     )
+    tags: Mapped[list[JobTag]] = relationship(
+        secondary=job_tag_map,
+        back_populates="jobs",
+        lazy="selectin",
+    )
+
+    @property
+    def tag_slugs_list(self) -> list[str]:
+        return sorted(t.slug for t in self.tags)
