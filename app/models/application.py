@@ -42,7 +42,7 @@ class Application(Base):
     status: Mapped[ApplicationStatus] = mapped_column(
         Enum(ApplicationStatus, name="application_status"),
         default=ApplicationStatus.SUBMITTED,
-        server_default=text("'SUBMITTED'"),
+        server_default=text("'SUBMITTED'::application_status"),
         nullable=False,
     )
     created_at: Mapped[datetime] = mapped_column(

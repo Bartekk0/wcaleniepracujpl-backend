@@ -1,4 +1,4 @@
-# takie coś znalazłem ale trzeba pull requesty robić 
+# requires pull requests ...
 name: CI
 
 on:

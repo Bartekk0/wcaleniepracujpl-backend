@@ -34,8 +34,16 @@ def upgrade() -> None:
     op.create_unique_constraint(
         "uq_applications_job_candidate", "applications", ["job_id", "candidate_user_id"]
     )
-    op.alter_column("applications", "status", server_default=sa.text("'SUBMITTED'"))
-    op.alter_column("users", "role", server_default=sa.text("'CANDIDATE'"))
+    op.alter_column(
+        "applications",
+        "status",
+        server_default=sa.text("'SUBMITTED'::application_status"),
+    )
+    op.alter_column(
+        "users",
+        "role",
+        server_default=sa.text("'CANDIDATE'::user_role"),
+    )
     op.drop_constraint(
         op.f("candidate_profiles_user_id_fkey"), "candidate_profiles", type_="foreignkey"
     )
