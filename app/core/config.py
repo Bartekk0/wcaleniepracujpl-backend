@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,6 +33,17 @@ class Settings(BaseSettings):
     celery_broker_url: str
     celery_result_backend: str
     notifications_enabled: bool = True
+
+    # Email: use ``log`` in development (no network). Set ``smtp`` with host/from for real delivery.
+    email_transport: Literal["smtp", "log"] = "log"
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from_address: str | None = None
+    smtp_use_starttls: bool = True
+    smtp_use_ssl: bool = False
+    smtp_timeout_seconds: int = 30
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
