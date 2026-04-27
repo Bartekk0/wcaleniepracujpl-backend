@@ -11,6 +11,23 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    env:
+      APP_ENV: test
+      POSTGRES_DB: test_db
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_HOST: localhost
+      REDIS_HOST: localhost
+      MINIO_ROOT_USER: test_minio_user
+      MINIO_ROOT_PASSWORD: test_minio_password
+      MINIO_ENDPOINT: localhost:9000
+      MINIO_ACCESS_KEY: test_minio_access_key
+      MINIO_SECRET_KEY: test_minio_secret_key
+      MINIO_BUCKET: test-bucket
+      SECRET_KEY: test-secret-key
+      DATABASE_URL: sqlite://
+      CELERY_BROKER_URL: redis://localhost:6379/0
+      CELERY_RESULT_BACKEND: redis://localhost:6379/0
 
     steps:
       - name: Checkout
