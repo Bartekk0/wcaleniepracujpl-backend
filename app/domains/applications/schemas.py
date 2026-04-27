@@ -24,3 +24,15 @@ class ApplicationOut(BaseModel):
 
 class ApplicationStatusUpdateRequest(BaseModel):
     status: ApplicationStatus
+
+
+class ApplicationEventOut(BaseModel):
+    id: int
+    application_id: int
+    actor_user_id: int
+    from_status: ApplicationStatus
+    to_status: ApplicationStatus
+    note: str | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
