@@ -75,6 +75,9 @@ def change_application_status(
     application_id: int,
     new_status: ApplicationStatus,
 ) -> Application:
+    if actor_role not in (UserRole.ADMIN, UserRole.RECRUITER):
+        raise PermissionError("Only admins and recruiters can change application status.")
+
     application = get_application_by_id(db, application_id=application_id)
     if application is None:
         raise ValueError("Application not found.")
@@ -91,8 +94,8 @@ def change_application_status(
         if not has_access:
             raise PermissionError("Recruiter has no access to this application.")
 
-    allowed_targets = ALLOWED_STATUS_TRANSITIONS[application.status.value]
-    if new_status.value not in allowed_targets:
+    allowed_targets = ALLOWED_STATUS_TRANSITIONS[application.status]
+    if new_status not in allowed_targets:
         raise ValueError(
             f"Invalid status transition: {application.status.value} -> {new_status.value}."
         )
