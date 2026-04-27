@@ -598,3 +598,132 @@ def test_application_status_update_returns_404_when_application_job_missing(
 
     assert response.status_code == 404
     assert response.json()["detail"] in ["Job not found.", "Application not found."]
+
+
+def test_application_history_contains_submission_and_status_transition_events(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.history.recruiter@example.com",
+        role=UserRole.RECRUITER,
+    )
+    _, candidate_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.history.candidate@example.com",
+        role=UserRole.CANDIDATE,
+    )
+    job_id = _create_job_for_recruiter(
+        client,
+        recruiter_token,
+        company_name="History Co",
+        job_title="History Job",
+    )
+
+    apply_response = client.post(
+        "/api/v1/applications",
+        json={"job_id": job_id, "cover_letter": "Track this timeline"},
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+    assert apply_response.status_code == 201
+    application_id = apply_response.json()["id"]
+
+    review_response = client.patch(
+        f"/api/v1/applications/{application_id}/status",
+        json={"status": "reviewing"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert review_response.status_code == 200
+
+    candidate_history = client.get(
+        f"/api/v1/applications/{application_id}/history",
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+    recruiter_history = client.get(
+        f"/api/v1/applications/{application_id}/history",
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+
+    assert candidate_history.status_code == 200
+    assert recruiter_history.status_code == 200
+    events = candidate_history.json()
+    assert len(events) == 2
+    assert events[0]["from_status"] == "submitted"
+    assert events[0]["to_status"] == "submitted"
+    assert events[1]["from_status"] == "submitted"
+    assert events[1]["to_status"] == "reviewing"
+    assert recruiter_history.json()[1]["to_status"] == "reviewing"
+
+
+def test_application_history_access_boundaries(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, owner_recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.history.owner.recruiter@example.com",
+        role=UserRole.RECRUITER,
+    )
+    _, outsider_recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.history.outsider.recruiter@example.com",
+        role=UserRole.RECRUITER,
+    )
+    _, owner_candidate_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.history.owner.candidate@example.com",
+        role=UserRole.CANDIDATE,
+    )
+    _, other_candidate_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.history.other.candidate@example.com",
+        role=UserRole.CANDIDATE,
+    )
+    _, admin_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.history.admin@example.com",
+        role=UserRole.ADMIN,
+    )
+
+    job_id = _create_job_for_recruiter(
+        client,
+        owner_recruiter_token,
+        company_name="History ACL Co",
+        job_title="History ACL Job",
+    )
+    apply_response = client.post(
+        "/api/v1/applications",
+        json={"job_id": job_id},
+        headers={"Authorization": f"Bearer {owner_candidate_token}"},
+    )
+    assert apply_response.status_code == 201
+    application_id = apply_response.json()["id"]
+
+    outsider_recruiter_history = client.get(
+        f"/api/v1/applications/{application_id}/history",
+        headers={"Authorization": f"Bearer {outsider_recruiter_token}"},
+    )
+    other_candidate_history = client.get(
+        f"/api/v1/applications/{application_id}/history",
+        headers={"Authorization": f"Bearer {other_candidate_token}"},
+    )
+    admin_history = client.get(
+        f"/api/v1/applications/{application_id}/history",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert outsider_recruiter_history.status_code == 403
+    assert outsider_recruiter_history.json()["detail"] == "Recruiter has no access to this job."
+    assert other_candidate_history.status_code == 403
+    assert (
+        other_candidate_history.json()["detail"] == "Candidate has no access to this application."
+    )
+    assert admin_history.status_code == 200
