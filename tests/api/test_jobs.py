@@ -79,6 +79,7 @@ def test_recruiter_can_create_job_for_owned_company(
     assert payload["location"] == "Remote"
     assert payload["employment_type"] == "full-time"
     assert payload["tags"] == []
+    assert "tag_slugs_list" not in payload
 
 
 def test_job_create_requires_recruiter_role(
@@ -213,7 +214,9 @@ def test_public_and_candidate_can_list_and_read_job_details(
     assert public_list_response.status_code == 200
     assert len(public_list_response.json()) == 1
     assert public_list_response.json()[0]["title"] == "Public Backend Engineer"
-    assert public_list_response.json()[0]["tags"] == []
+    job_payload = public_list_response.json()[0]
+    assert job_payload["tags"] == []
+    assert "tag_slugs_list" not in job_payload
     assert candidate_list_response.status_code == 200
     assert len(candidate_list_response.json()) == 1
     assert candidate_list_response.json()[0]["id"] == job_id
@@ -472,7 +475,10 @@ def test_public_jobs_can_filter_by_tags_and_pending_jobs_are_excluded(
     python_any = client.get("/api/v1/jobs", params=[("tag", "python")])
 
     assert python_backend.status_code == 200
-    assert [j["id"] for j in python_backend.json()] == [job_a_id]
+    pb_rows = python_backend.json()
+    assert [j["id"] for j in pb_rows] == [job_a_id]
+    assert pb_rows[0]["tags"] == ["backend", "python"]
+    assert "tag_slugs_list" not in pb_rows[0]
     assert rust_only.status_code == 200
     assert [j["id"] for j in rust_only.json()] == [job_b_id]
     assert python_any.status_code == 200
