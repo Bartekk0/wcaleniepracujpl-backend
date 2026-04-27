@@ -16,8 +16,15 @@ def list_pending_moderation_jobs(db: Session) -> list[Job]:
     return list(db.execute(stmt).scalars().all())
 
 
-def get_job_for_moderation(db: Session, *, job_id: int) -> Job | None:
+def get_job_for_moderation(
+    db: Session,
+    *,
+    job_id: int,
+    for_update: bool = False,
+) -> Job | None:
     stmt = select(Job).where(Job.id == job_id)
+    if for_update:
+        stmt = stmt.with_for_update()
     return db.execute(stmt).scalar_one_or_none()
 
 

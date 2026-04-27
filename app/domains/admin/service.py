@@ -62,7 +62,7 @@ def _moderate_job(
     status: JobModerationStatus,
     action: str,
 ) -> tuple[Job, AdminAuditLog]:
-    job = get_job_for_moderation(db, job_id=job_id)
+    job = get_job_for_moderation(db, job_id=job_id, for_update=True)
     if job is None:
         raise ValueError("Job not found.")
     if job.moderation_status != JobModerationStatus.PENDING:
