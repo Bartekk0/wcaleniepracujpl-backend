@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session
 
 from app.models.company import Company
 from app.models.company_recruiter import CompanyRecruiter
-from app.models.job import Job
+from app.models.job import Job, JobModerationStatus
+from app.models.job_tag import JobTag, job_tag_map
 
 
 def create_job(
@@ -47,6 +48,17 @@ def _apply_job_filters(
     return stmt
 
 
+def _apply_tag_filters(stmt: Select[tuple[Job]], *, tag_slugs: list[str]) -> Select[tuple[Job]]:
+    for slug in tag_slugs:
+        tag_subq = (
+            select(job_tag_map.c.job_id)
+            .join(JobTag, JobTag.id == job_tag_map.c.tag_id)
+            .where(JobTag.slug == slug)
+        )
+        stmt = stmt.where(Job.id.in_(tag_subq))
+    return stmt
+
+
 def list_jobs(
     db: Session,
     *,
@@ -54,10 +66,14 @@ def list_jobs(
     title_query: str | None = None,
     location: str | None = None,
     employment_type: str | None = None,
+    tag_slugs: list[str] | None = None,
+    moderation_status: JobModerationStatus | None = None,
     page: int = 1,
     page_size: int = 20,
 ) -> list[Job]:
     stmt = select(Job)
+    if moderation_status is not None:
+        stmt = stmt.where(Job.moderation_status == moderation_status)
     stmt = _apply_job_filters(
         stmt,
         company_id=company_id,
@@ -65,12 +81,23 @@ def list_jobs(
         location=location,
         employment_type=employment_type,
     )
+    slugs = [s for s in (tag_slugs or []) if s]
+    if slugs:
+        stmt = _apply_tag_filters(stmt, tag_slugs=slugs)
     stmt = stmt.order_by(Job.id.desc()).offset((page - 1) * page_size).limit(page_size)
     return list(db.execute(stmt).scalars().all())
 
 
 def get_job_by_id(db: Session, *, job_id: int) -> Job | None:
     stmt = select(Job).where(Job.id == job_id)
+    return db.execute(stmt).scalar_one_or_none()
+
+
+def get_approved_job_by_id(db: Session, *, job_id: int) -> Job | None:
+    stmt = select(Job).where(
+        Job.id == job_id,
+        Job.moderation_status == JobModerationStatus.APPROVED,
+    )
     return db.execute(stmt).scalar_one_or_none()
 
 
@@ -82,6 +109,7 @@ def list_jobs_for_recruiter_scope(
     title_query: str | None = None,
     location: str | None = None,
     employment_type: str | None = None,
+    tag_slugs: list[str] | None = None,
     page: int = 1,
     page_size: int = 20,
 ) -> list[Job]:
@@ -106,5 +134,8 @@ def list_jobs_for_recruiter_scope(
         location=location,
         employment_type=employment_type,
     )
+    slugs = [s for s in (tag_slugs or []) if s]
+    if slugs:
+        stmt = _apply_tag_filters(stmt, tag_slugs=slugs)
     stmt = stmt.order_by(Job.id.desc()).distinct().offset((page - 1) * page_size).limit(page_size)
     return list(db.execute(stmt).scalars().all())
