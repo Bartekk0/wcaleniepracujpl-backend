@@ -416,10 +416,7 @@ def test_application_status_update_role_guards_and_access_control(
     assert candidate_update_response.status_code == 403
     assert candidate_update_response.json()["detail"] == "Insufficient permissions."
     assert outsider_update_response.status_code == 403
-    assert (
-        outsider_update_response.json()["detail"]
-        == "Recruiter has no access to this job."
-    )
+    assert outsider_update_response.json()["detail"] == "Recruiter has no access to this job."
     assert admin_update_response.status_code == 200
     assert admin_update_response.json()["status"] == "reviewing"
 

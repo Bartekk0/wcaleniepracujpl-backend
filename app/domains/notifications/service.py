@@ -62,4 +62,3 @@ def enqueue_application_status_changed_notification(
                 "to_status": to_status.value,
             },
         )
-
