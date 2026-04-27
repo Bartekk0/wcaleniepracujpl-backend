@@ -49,6 +49,40 @@ def list_applications_for_job(db: Session, *, job_id: int) -> list[Application]:
     return list(db.execute(stmt).scalars().all())
 
 
+def list_applications_for_candidate_by_status(
+    db: Session,
+    *,
+    candidate_user_id: int,
+    status: ApplicationStatus,
+) -> list[Application]:
+    stmt = (
+        select(Application)
+        .where(
+            Application.candidate_user_id == candidate_user_id,
+            Application.status == status,
+        )
+        .order_by(Application.id.desc())
+    )
+    return list(db.execute(stmt).scalars().all())
+
+
+def list_applications_for_job_by_status(
+    db: Session,
+    *,
+    job_id: int,
+    status: ApplicationStatus,
+) -> list[Application]:
+    stmt = (
+        select(Application)
+        .where(
+            Application.job_id == job_id,
+            Application.status == status,
+        )
+        .order_by(Application.id.desc())
+    )
+    return list(db.execute(stmt).scalars().all())
+
+
 def get_application_by_id(db: Session, *, application_id: int) -> Application | None:
     stmt = select(Application).where(Application.id == application_id)
     return db.execute(stmt).scalar_one_or_none()
