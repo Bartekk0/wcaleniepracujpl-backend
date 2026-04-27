@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.models.job import Job
 from app.models.user import UserRole
 from app.services.user_service import create_user
 
@@ -261,3 +262,229 @@ def test_recruiter_cannot_view_applications_for_unowned_job(
 
     assert outsider_view.status_code == 403
     assert outsider_view.json()["detail"] == "Recruiter has no access to this job."
+
+
+def test_recruiter_can_transition_application_status_for_owned_job(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.status.owner@example.com",
+        role=UserRole.RECRUITER,
+    )
+    _, candidate_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.status.candidate@example.com",
+        role=UserRole.CANDIDATE,
+    )
+    job_id = _create_job_for_recruiter(
+        client,
+        recruiter_token,
+        company_name="Status Flow Co",
+        job_title="Status Flow Job",
+    )
+    apply_response = client.post(
+        "/api/v1/applications",
+        json={"job_id": job_id, "cover_letter": "Ready for review"},
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+    assert apply_response.status_code == 201
+    application_id = apply_response.json()["id"]
+
+    reviewing_response = client.patch(
+        f"/api/v1/applications/{application_id}/status",
+        json={"status": "reviewing"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    accepted_response = client.patch(
+        f"/api/v1/applications/{application_id}/status",
+        json={"status": "accepted"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+
+    assert reviewing_response.status_code == 200
+    assert reviewing_response.json()["status"] == "reviewing"
+    assert accepted_response.status_code == 200
+    assert accepted_response.json()["status"] == "accepted"
+
+
+def test_application_status_forbids_invalid_transition(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.status.invalid.recruiter@example.com",
+        role=UserRole.RECRUITER,
+    )
+    _, candidate_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.status.invalid.candidate@example.com",
+        role=UserRole.CANDIDATE,
+    )
+    job_id = _create_job_for_recruiter(
+        client,
+        recruiter_token,
+        company_name="Invalid Flow Co",
+        job_title="Invalid Flow Job",
+    )
+    apply_response = client.post(
+        "/api/v1/applications",
+        json={"job_id": job_id},
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+    assert apply_response.status_code == 201
+    application_id = apply_response.json()["id"]
+
+    invalid_transition_response = client.patch(
+        f"/api/v1/applications/{application_id}/status",
+        json={"status": "accepted"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+
+    assert invalid_transition_response.status_code == 409
+    assert (
+        invalid_transition_response.json()["detail"]
+        == "Invalid status transition: submitted -> accepted."
+    )
+
+
+def test_application_status_update_role_guards_and_access_control(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, owner_recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.status.guard.owner@example.com",
+        role=UserRole.RECRUITER,
+    )
+    _, outsider_recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.status.guard.outsider@example.com",
+        role=UserRole.RECRUITER,
+    )
+    _, candidate_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.status.guard.candidate@example.com",
+        role=UserRole.CANDIDATE,
+    )
+    _, admin_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.status.guard.admin@example.com",
+        role=UserRole.ADMIN,
+    )
+
+    job_id = _create_job_for_recruiter(
+        client,
+        owner_recruiter_token,
+        company_name="Guard Status Co",
+        job_title="Guard Status Job",
+    )
+    apply_response = client.post(
+        "/api/v1/applications",
+        json={"job_id": job_id},
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+    assert apply_response.status_code == 201
+    application_id = apply_response.json()["id"]
+
+    candidate_update_response = client.patch(
+        f"/api/v1/applications/{application_id}/status",
+        json={"status": "reviewing"},
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+    outsider_update_response = client.patch(
+        f"/api/v1/applications/{application_id}/status",
+        json={"status": "reviewing"},
+        headers={"Authorization": f"Bearer {outsider_recruiter_token}"},
+    )
+    admin_update_response = client.patch(
+        f"/api/v1/applications/{application_id}/status",
+        json={"status": "reviewing"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert candidate_update_response.status_code == 403
+    assert candidate_update_response.json()["detail"] == "Insufficient permissions."
+    assert outsider_update_response.status_code == 403
+    assert (
+        outsider_update_response.json()["detail"]
+        == "Recruiter has no access to this job."
+    )
+    assert admin_update_response.status_code == 200
+    assert admin_update_response.json()["status"] == "reviewing"
+
+
+def test_application_status_update_returns_404_for_missing_application(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.status.missing-app.recruiter@example.com",
+        role=UserRole.RECRUITER,
+    )
+
+    response = client.patch(
+        "/api/v1/applications/999999/status",
+        json={"status": "reviewing"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Application not found."
+
+
+def test_application_status_update_returns_404_when_application_job_missing(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.status.missing-job.recruiter@example.com",
+        role=UserRole.RECRUITER,
+    )
+    _, candidate_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.status.missing-job.candidate@example.com",
+        role=UserRole.CANDIDATE,
+    )
+    job_id = _create_job_for_recruiter(
+        client,
+        recruiter_token,
+        company_name="Missing Job Co",
+        job_title="Missing Job Status Flow",
+    )
+    apply_response = client.post(
+        "/api/v1/applications",
+        json={"job_id": job_id, "cover_letter": "Please review"},
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+    assert apply_response.status_code == 201
+    application_id = apply_response.json()["id"]
+
+    job = db_session.get(Job, job_id)
+    assert job is not None
+    db_session.delete(job)
+    db_session.commit()
+
+    response = client.patch(
+        f"/api/v1/applications/{application_id}/status",
+        json={"status": "reviewing"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Job not found."

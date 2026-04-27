@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.application import Application
+from app.models.application import Application, ApplicationStatus
 
 
 def create_application(
@@ -47,3 +47,21 @@ def list_applications_for_candidate(db: Session, *, candidate_user_id: int) -> l
 def list_applications_for_job(db: Session, *, job_id: int) -> list[Application]:
     stmt = select(Application).where(Application.job_id == job_id).order_by(Application.id.desc())
     return list(db.execute(stmt).scalars().all())
+
+
+def get_application_by_id(db: Session, *, application_id: int) -> Application | None:
+    stmt = select(Application).where(Application.id == application_id)
+    return db.execute(stmt).scalar_one_or_none()
+
+
+def update_application_status(
+    db: Session,
+    *,
+    application: Application,
+    status: ApplicationStatus,
+) -> Application:
+    application.status = status
+    db.add(application)
+    db.commit()
+    db.refresh(application)
+    return application
