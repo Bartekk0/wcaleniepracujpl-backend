@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
+    from .application_event import ApplicationEvent
     from .job import Job
     from .user import User
 
@@ -59,3 +60,7 @@ class Application(Base):
 
     job: Mapped["Job"] = relationship(back_populates="applications")
     candidate: Mapped["User"] = relationship(back_populates="applications")
+    events: Mapped[list["ApplicationEvent"]] = relationship(
+        cascade="all, delete-orphan",
+        order_by="ApplicationEvent.id.asc()",
+    )

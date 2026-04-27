@@ -1,4 +1,5 @@
 from app.models.application import Application, ApplicationStatus
+from app.models.application_event import ApplicationEvent
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.candidate_profile import CandidateProfile
 from app.models.company import Company
@@ -16,5 +17,6 @@ __all__ = [
     "Job",
     "JobModerationStatus",
     "Application",
+    "ApplicationEvent",
     "ApplicationStatus",
 ]
