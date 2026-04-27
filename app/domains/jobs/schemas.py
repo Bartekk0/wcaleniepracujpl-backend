@@ -37,7 +37,7 @@ class JobOut(BaseModel):
     location: str | None
     employment_type: str | None
     description: str
-    tags: list[str] = Field(validation_alias="tag_slugs_list")
+    tag_slugs_list: list[str] = Field(serialization_alias="tags")
     created_at: datetime
     updated_at: datetime
 
