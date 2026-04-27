@@ -10,11 +10,13 @@ def create_application(
     job_id: int,
     candidate_user_id: int,
     cover_letter: str | None,
+    cv_object_key: str | None = None,
 ) -> Application:
     application = Application(
         job_id=job_id,
         candidate_user_id=candidate_user_id,
         cover_letter=cover_letter,
+        cv_object_key=cv_object_key,
     )
     db.add(application)
     db.commit()

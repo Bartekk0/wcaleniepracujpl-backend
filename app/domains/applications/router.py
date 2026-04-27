@@ -3,11 +3,14 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_candidate, require_recruiter, require_roles
 from app.db.session import get_db
+from app.domains.applications.cv_presign import presigned_upload_cv
 from app.domains.applications.schemas import (
     ApplicationCreateRequest,
     ApplicationEventOut,
     ApplicationOut,
     ApplicationStatusUpdateRequest,
+    CvPresignRequest,
+    CvPresignResponse,
 )
 from app.domains.applications.service import (
     apply_to_job,
@@ -50,11 +53,29 @@ def apply_to_job_endpoint(
         message = str(exc)
         if message == "Job not found.":
             raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=message) from exc
+        if message == "Job is not published.":
+            raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=message) from exc
         if message == "Application already exists for this job.":
             raise HTTPException(status_code=http_status.HTTP_409_CONFLICT, detail=message) from exc
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=message) from exc
 
     return ApplicationOut.model_validate(application)
+
+
+@router.post("/cv-presign", response_model=CvPresignResponse)
+def presign_cv_upload_endpoint(
+    payload: CvPresignRequest,
+    current_user: User = Depends(require_candidate),
+) -> CvPresignResponse:
+    object_key, upload_url, expires = presigned_upload_cv(
+        candidate_user_id=current_user.id,
+        filename=payload.filename,
+    )
+    return CvPresignResponse(
+        object_key=object_key,
+        upload_url=upload_url,
+        expires_in_seconds=expires,
+    )
 
 
 @router.get("/me", response_model=list[ApplicationOut])

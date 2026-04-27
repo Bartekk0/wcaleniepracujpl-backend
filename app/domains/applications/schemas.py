@@ -8,6 +8,17 @@ from app.models.application import ApplicationStatus
 class ApplicationCreateRequest(BaseModel):
     job_id: int
     cover_letter: str | None = Field(default=None)
+    cv_object_key: str | None = Field(default=None, max_length=512)
+
+
+class CvPresignRequest(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+
+
+class CvPresignResponse(BaseModel):
+    object_key: str
+    upload_url: str
+    expires_in_seconds: int
 
 
 class ApplicationOut(BaseModel):
@@ -15,6 +26,7 @@ class ApplicationOut(BaseModel):
     job_id: int
     candidate_user_id: int
     cover_letter: str | None
+    cv_object_key: str | None
     status: ApplicationStatus
     created_at: datetime
     updated_at: datetime

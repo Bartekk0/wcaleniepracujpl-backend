@@ -19,11 +19,13 @@ from app.domains.notifications.service import (
     enqueue_application_status_changed_notification,
     enqueue_application_submitted_notification,
 )
+from app.domains.applications.cv_presign import validate_cv_object_key
 from app.domains.companies.repository import is_company_member
 from app.domains.jobs.repository import get_job_by_id
 from app.domains.applications.schemas import ApplicationCreateRequest
 from app.models.application import Application, ApplicationStatus
 from app.models.application_event import ApplicationEvent
+from app.models.job import JobModerationStatus
 from app.models.user import UserRole
 
 
@@ -36,6 +38,13 @@ def apply_to_job(
     job = get_job_by_id(db, job_id=payload.job_id)
     if job is None:
         raise ValueError("Job not found.")
+    if job.moderation_status != JobModerationStatus.APPROVED:
+        raise ValueError("Job is not published.")
+
+    validate_cv_object_key(
+        candidate_user_id=candidate_user_id,
+        object_key=payload.cv_object_key,
+    )
 
     existing = get_application_by_job_and_candidate(
         db,
@@ -50,6 +59,7 @@ def apply_to_job(
         job_id=payload.job_id,
         candidate_user_id=candidate_user_id,
         cover_letter=payload.cover_letter,
+        cv_object_key=payload.cv_object_key,
     )
     enqueue_application_submitted_notification(
         application_id=application.id,
