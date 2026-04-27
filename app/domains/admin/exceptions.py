@@ -1,6 +1,6 @@
 class JobNotFoundError(Exception):
-    pass
+    """Raised when a job cannot be found during a moderation operation."""
 
 
 class AlreadyModeratedError(Exception):
-    pass
+    """Raised when attempting to moderate a job that has already been moderated."""
