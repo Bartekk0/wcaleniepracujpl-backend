@@ -1,4 +1,5 @@
 from celery import Celery
+
 from app.core.config import settings
 
 celery_app = Celery(
@@ -15,7 +16,5 @@ celery_app.conf.update(
     enable_utc=True,
 )
 
-
-@celery_app.task
-def hello():
-    return "hello world"
+# Ensure domain task modules are imported so Celery registers tasks.
+import app.domains.notifications.tasks  # noqa: E402,F401
