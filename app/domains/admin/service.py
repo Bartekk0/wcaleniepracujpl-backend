@@ -87,4 +87,3 @@ def _moderate_job(
     db.refresh(job)
     db.refresh(audit_log)
     return job, audit_log
-

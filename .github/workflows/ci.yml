@@ -1,4 +1,3 @@
-# requires pull requests ...
 name: CI
 
 on:

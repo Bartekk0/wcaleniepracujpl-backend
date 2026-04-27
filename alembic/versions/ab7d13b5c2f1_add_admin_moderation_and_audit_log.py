@@ -53,13 +53,27 @@ def upgrade() -> None:
         sa.Column("target_type", sa.String(length=100), nullable=False),
         sa.Column("target_id", sa.Integer(), nullable=False),
         sa.Column("note", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["admin_user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_admin_audit_logs_action"), "admin_audit_logs", ["action"], unique=False)
-    op.create_index(op.f("ix_admin_audit_logs_admin_user_id"), "admin_audit_logs", ["admin_user_id"], unique=False)
-    op.create_index(op.f("ix_admin_audit_logs_target_id"), "admin_audit_logs", ["target_id"], unique=False)
+    op.create_index(
+        op.f("ix_admin_audit_logs_action"), "admin_audit_logs", ["action"], unique=False
+    )
+    op.create_index(
+        op.f("ix_admin_audit_logs_admin_user_id"),
+        "admin_audit_logs",
+        ["admin_user_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_admin_audit_logs_target_id"), "admin_audit_logs", ["target_id"], unique=False
+    )
 
 
 def downgrade() -> None:

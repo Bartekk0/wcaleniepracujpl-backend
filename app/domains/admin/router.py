@@ -75,4 +75,3 @@ def reject_job_endpoint(
         job=ModerationJobOut.model_validate(job),
         audit_log=AdminAuditLogOut.model_validate(audit_log),
     )
-

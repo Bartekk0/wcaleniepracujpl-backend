@@ -41,4 +41,3 @@ class AdminAuditLogOut(BaseModel):
 class ModerationActionResponse(BaseModel):
     job: ModerationJobOut
     audit_log: AdminAuditLogOut
-
