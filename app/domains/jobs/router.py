@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_recruiter
@@ -13,6 +15,26 @@ from app.domains.jobs.service import (
 from app.models.user import User
 
 router = APIRouter()
+
+
+def job_list_query_params(
+    company_id: int | None = Query(None),
+    title_query: str | None = Query(None),
+    location: str | None = Query(None),
+    employment_type: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    tag: list[str] | None = Query(None),
+) -> JobListQueryParams:
+    return JobListQueryParams(
+        company_id=company_id,
+        title_query=title_query,
+        location=location,
+        employment_type=employment_type,
+        tags=list(tag) if tag else [],
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.post("", response_model=JobOut, status_code=status.HTTP_201_CREATED)
@@ -37,7 +59,7 @@ def create_job_endpoint(
 
 @router.get("", response_model=list[JobOut])
 def list_jobs_endpoint(
-    query: JobListQueryParams = Depends(),
+    query: Annotated[JobListQueryParams, Depends(job_list_query_params)],
     db: Session = Depends(get_db),
 ) -> list[JobOut]:
     jobs = list_public_jobs(db, query=query)
@@ -46,7 +68,7 @@ def list_jobs_endpoint(
 
 @router.get("/me", response_model=list[JobOut])
 def list_recruiter_jobs_endpoint(
-    query: JobListQueryParams = Depends(),
+    query: Annotated[JobListQueryParams, Depends(job_list_query_params)],
     db: Session = Depends(get_db),
     current_user: User = Depends(require_recruiter),
 ) -> list[JobOut]:

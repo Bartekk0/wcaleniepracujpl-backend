@@ -5,6 +5,7 @@ from app.models.candidate_profile import CandidateProfile
 from app.models.company import Company
 from app.models.company_recruiter import CompanyRecruiter
 from app.models.job import Job, JobModerationStatus
+from app.models.job_tag import JobTag
 from app.models.report import Report, ReportStatus
 from app.models.user import User, UserRole
 
@@ -17,6 +18,7 @@ __all__ = [
     "CompanyRecruiter",
     "Job",
     "JobModerationStatus",
+    "JobTag",
     "Report",
     "ReportStatus",
     "Application",

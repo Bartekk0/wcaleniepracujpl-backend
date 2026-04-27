@@ -6,12 +6,13 @@ from app.domains.companies.repository import (
 )
 from app.domains.jobs.repository import (
     create_job,
-    get_job_by_id,
+    get_approved_job_by_id,
     list_jobs,
     list_jobs_for_recruiter_scope,
 )
 from app.domains.jobs.schemas import JobCreateRequest, JobListQueryParams
-from app.models.job import Job
+from app.domains.jobs.tags import replace_job_tags
+from app.models.job import Job, JobModerationStatus
 
 
 def create_recruiter_job(
@@ -32,7 +33,7 @@ def create_recruiter_job(
     if not has_access:
         raise PermissionError("Recruiter has no access to this company.")
 
-    return create_job(
+    job = create_job(
         db,
         company_id=payload.company_id,
         title=payload.title,
@@ -40,6 +41,8 @@ def create_recruiter_job(
         employment_type=payload.employment_type,
         description=payload.description,
     )
+    replace_job_tags(db, job_id=job.id, tag_slugs=payload.tags)
+    return job
 
 
 def list_public_jobs(db: Session, *, query: JobListQueryParams) -> list[Job]:
@@ -49,6 +52,8 @@ def list_public_jobs(db: Session, *, query: JobListQueryParams) -> list[Job]:
         title_query=query.title_query,
         location=query.location,
         employment_type=query.employment_type,
+        tag_slugs=query.tags,
+        moderation_status=JobModerationStatus.APPROVED,
         page=query.page,
         page_size=query.page_size,
     )
@@ -64,10 +69,11 @@ def list_recruiter_jobs(
         title_query=query.title_query,
         location=query.location,
         employment_type=query.employment_type,
+        tag_slugs=query.tags,
         page=query.page,
         page_size=query.page_size,
     )
 
 
 def get_public_job(db: Session, *, job_id: int) -> Job | None:
-    return get_job_by_id(db, job_id=job_id)
+    return get_approved_job_by_id(db, job_id=job_id)

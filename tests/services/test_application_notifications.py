@@ -7,7 +7,7 @@ from app.domains.applications.schemas import ApplicationCreateRequest
 from app.domains.applications.service import apply_to_job, change_application_status
 from app.models.application import ApplicationStatus
 from app.models.company import Company
-from app.models.job import Job
+from app.models.job import Job, JobModerationStatus
 from app.models.user import UserRole
 from app.services.user_service import create_user
 
@@ -38,7 +38,12 @@ def test_apply_to_job_enqueues_submitted_notification(monkeypatch) -> None:
         db.add(company)
         db.commit()
         db.refresh(company)
-        job = Job(company_id=company.id, title="Backend", description="Build APIs")
+        job = Job(
+            company_id=company.id,
+            title="Backend",
+            description="Build APIs",
+            moderation_status=JobModerationStatus.APPROVED,
+        )
         db.add(job)
         db.commit()
         db.refresh(job)
@@ -85,7 +90,12 @@ def test_change_application_status_enqueues_status_change_notification(monkeypat
         db.add(company)
         db.commit()
         db.refresh(company)
-        job = Job(company_id=company.id, title="Data Engineer", description="Build pipelines")
+        job = Job(
+            company_id=company.id,
+            title="Data Engineer",
+            description="Build pipelines",
+            moderation_status=JobModerationStatus.APPROVED,
+        )
         db.add(job)
         db.commit()
         db.refresh(job)
