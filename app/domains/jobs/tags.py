@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.job import Job
@@ -33,8 +34,17 @@ def get_or_create_tags(db: Session, slugs: list[str]) -> list[JobTag]:
             continue
         label = raw.strip()
         tag = JobTag(slug=slug, label=label[:120])
-        db.add(tag)
-        db.flush()
+        try:
+            with db.begin_nested():
+                db.add(tag)
+                db.flush()
+        except IntegrityError:
+            db.expunge(tag)
+            winner = db.execute(select(JobTag).where(JobTag.slug == slug)).scalar_one_or_none()
+            if winner is None:
+                raise
+            tags.append(winner)
+            continue
         tags.append(tag)
     return tags
 
