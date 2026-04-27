@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     minio_secret_key: str
     minio_bucket: str
     minio_secure: bool = False
+    minio_bootstrap_at_startup: bool = True
 
     app_env: str = "development"
     app_host: str = "0.0.0.0"

@@ -1,8 +1,18 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.api.router import api_router
+from app.storage.minio_client import ensure_bucket_exists
 
-app = FastAPI(title="wcaleniepracujpl-backend")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    ensure_bucket_exists()
+    yield
+
+
+app = FastAPI(title="wcaleniepracujpl-backend", lifespan=lifespan)
 app.include_router(api_router, prefix="/api/v1")
 
 

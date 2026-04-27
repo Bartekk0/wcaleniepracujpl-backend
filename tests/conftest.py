@@ -16,6 +16,11 @@ def disable_notifications_in_tests(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "notifications_enabled", False)
 
 
+@pytest.fixture(autouse=True)
+def disable_minio_bootstrap_in_tests(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "minio_bootstrap_at_startup", False)
+
+
 @pytest.fixture
 def db_session() -> Session:
     engine = create_engine(
