@@ -36,4 +36,6 @@ class ApplicationEvent(Base):
         nullable=False,
     )
 
-    application = relationship("Application", back_populates="events")
+    application: Mapped["Application"] = relationship(
+        "Application", back_populates="events"
+    )
