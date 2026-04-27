@@ -11,23 +11,41 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: test_db
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test_user -d test_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       APP_ENV: test
       POSTGRES_DB: test_db
       POSTGRES_USER: test_user
       POSTGRES_PASSWORD: test_password
       POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
       REDIS_HOST: localhost
+      REDIS_PORT: 6379
       MINIO_ROOT_USER: test_minio_user
       MINIO_ROOT_PASSWORD: test_minio_password
       MINIO_ENDPOINT: localhost:9000
       MINIO_ACCESS_KEY: test_minio_access_key
       MINIO_SECRET_KEY: test_minio_secret_key
       MINIO_BUCKET: test-bucket
+      MINIO_SECURE: "false"
       SECRET_KEY: test-secret-key
-      DATABASE_URL: sqlite://
+      DATABASE_URL: postgresql+psycopg://test_user:test_password@localhost:5432/test_db
       CELERY_BROKER_URL: redis://localhost:6379/0
-      CELERY_RESULT_BACKEND: redis://localhost:6379/0
+      CELERY_RESULT_BACKEND: redis://localhost:6379/1
+      NOTIFICATIONS_ENABLED: "false"
 
     steps:
       - name: Checkout
@@ -45,6 +63,12 @@ jobs:
 
       - name: Ruff
         run: ruff check .
+
+      - name: Alembic migration smoke test
+        run: |
+          alembic upgrade head
+          alembic downgrade -1
+          alembic upgrade head
 
       - name: Pytest
         run: pytest -q
