@@ -222,6 +222,51 @@ def test_candidate_cv_download_forbidden_for_other_candidates_application(
     assert response.status_code == 403
 
 
+def test_candidate_cv_download_forbidden_without_cv_still_returns_403_for_foreign_candidate(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="cvdl.recruiter5@example.com",
+        role=UserRole.RECRUITER,
+    )
+    _, candidate_a_token = _create_user_and_login(
+        client,
+        db_session,
+        email="cvdl.candidate.5a@example.com",
+        role=UserRole.CANDIDATE,
+    )
+    _, candidate_b_token = _create_user_and_login(
+        client,
+        db_session,
+        email="cvdl.candidate.5b@example.com",
+        role=UserRole.CANDIDATE,
+    )
+    job_id = _create_job_for_recruiter(
+        client,
+        db_session,
+        recruiter_token,
+        company_name="CvDl Co 5",
+        job_title="CvDl Job 5",
+    )
+    apply_response = client.post(
+        "/api/v1/applications",
+        json={"job_id": job_id, "cover_letter": "No CV yet"},
+        headers={"Authorization": f"Bearer {candidate_a_token}"},
+    )
+    assert apply_response.status_code == 201
+    application_id = apply_response.json()["id"]
+
+    response = client.get(
+        f"/api/v1/applications/{application_id}/cv-download",
+        headers={"Authorization": f"Bearer {candidate_b_token}"},
+    )
+
+    assert response.status_code == 403
+
+
 def test_cv_download_not_found_when_no_cv_uploaded(
     monkeypatch,
     client: TestClient,

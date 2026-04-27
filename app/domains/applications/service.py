@@ -190,8 +190,8 @@ def presign_application_cv_download(
     if application is None:
         raise ValueError("Application not found.")
 
-    if application.cv_object_key is None:
-        raise ValueError("No CV uploaded for this application.")
+    if actor_role not in (UserRole.ADMIN, UserRole.RECRUITER, UserRole.CANDIDATE):
+        raise PermissionError("Insufficient permissions.")
 
     if actor_role == UserRole.CANDIDATE and application.candidate_user_id != actor_user_id:
         raise PermissionError("Candidate has no access to this application.")
@@ -203,8 +203,8 @@ def presign_application_cv_download(
             recruiter_user_id=actor_user_id,
         )
 
-    if actor_role not in (UserRole.ADMIN, UserRole.RECRUITER, UserRole.CANDIDATE):
-        raise PermissionError("Insufficient permissions.")
+    if application.cv_object_key is None:
+        raise ValueError("No CV uploaded for this application.")
 
     return presigned_download_cv(object_key=application.cv_object_key)
 
