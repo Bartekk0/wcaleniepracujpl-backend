@@ -4,10 +4,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.db import models_registry  # noqa: F401
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def disable_notifications_in_tests(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "notifications_enabled", False)
 
 
 @pytest.fixture

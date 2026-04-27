@@ -1,14 +1,14 @@
 import logging
-import os
 
+from app.core.config import settings
 from app.models.application import ApplicationStatus
 
 logger = logging.getLogger(__name__)
 
 
 def _should_enqueue_tasks() -> bool:
-    # Keep tests deterministic and fast: under pytest we skip broker I/O.
-    return os.getenv("PYTEST_CURRENT_TEST") is None
+    # Task enqueueing is controlled explicitly through application configuration.
+    return settings.notifications_enabled
 
 
 def enqueue_application_submitted_notification(
