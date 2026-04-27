@@ -50,5 +50,4 @@ Thumbs.db
 .docker/
 
 
-# Docs 
-docs/
+# Frontend API blueprint (tracked). Add patterns here if you generate other files under docs/.

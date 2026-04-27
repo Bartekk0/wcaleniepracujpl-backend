@@ -2,6 +2,10 @@
 
 Backend API for a Job Board MVP (candidate, recruiter, admin) built with Python and FastAPI.
 
+## Frontend documentation
+
+To implement a client app against this API, see **[docs/frontend/README.md](docs/frontend/README.md)** — framework-agnostic blueprint (auth, endpoints, errors, CV presign flow, deployment notes, and an implementation checklist).
+
 ## Stack
 
 - Python
