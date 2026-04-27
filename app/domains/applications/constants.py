@@ -1,7 +1,7 @@
-ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
-    "submitted": {"reviewing"},
-    "reviewing": {"accepted", "rejected"},
-    "accepted": set(),
-    "rejected": set(),
+ALLOWED_STATUS_TRANSITIONS: dict[ApplicationStatus, set[ApplicationStatus]] = {
+    ApplicationStatus.SUBMITTED: {ApplicationStatus.REVIEWING},
+    ApplicationStatus.REVIEWING: {ApplicationStatus.ACCEPTED, ApplicationStatus.REJECTED},
+    ApplicationStatus.ACCEPTED: set(),
+    ApplicationStatus.REJECTED: set(),
 }
 
