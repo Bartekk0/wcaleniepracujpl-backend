@@ -6,7 +6,9 @@ from app.domains.applications.repository import (
     get_application_by_id,
     get_application_by_job_and_candidate,
     list_applications_for_candidate,
+    list_applications_for_candidate_by_status,
     list_applications_for_job,
+    list_applications_for_job_by_status,
     update_application_status,
 )
 from app.domains.notifications.service import (
@@ -52,7 +54,18 @@ def apply_to_job(
     return application
 
 
-def list_my_applications(db: Session, *, candidate_user_id: int) -> list[Application]:
+def list_my_applications(
+    db: Session,
+    *,
+    candidate_user_id: int,
+    status: ApplicationStatus | None = None,
+) -> list[Application]:
+    if status is not None:
+        return list_applications_for_candidate_by_status(
+            db,
+            candidate_user_id=candidate_user_id,
+            status=status,
+        )
     return list_applications_for_candidate(db, candidate_user_id=candidate_user_id)
 
 
@@ -79,8 +92,15 @@ def list_recruiter_applications_for_job(
     *,
     recruiter_user_id: int,
     job_id: int,
+    status: ApplicationStatus | None = None,
 ) -> list[Application]:
     _assert_recruiter_can_access_job(db, job_id=job_id, recruiter_user_id=recruiter_user_id)
+    if status is not None:
+        return list_applications_for_job_by_status(
+            db,
+            job_id=job_id,
+            status=status,
+        )
     return list_applications_for_job(db, job_id=job_id)
 
 

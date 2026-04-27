@@ -4,8 +4,13 @@ from app.domains.companies.repository import (
     get_company_by_id,
     is_company_member,
 )
-from app.domains.jobs.repository import create_job, get_job_by_id, list_jobs
-from app.domains.jobs.schemas import JobCreateRequest
+from app.domains.jobs.repository import (
+    create_job,
+    get_job_by_id,
+    list_jobs,
+    list_jobs_for_recruiter_scope,
+)
+from app.domains.jobs.schemas import JobCreateRequest, JobListQueryParams
 from app.models.job import Job
 
 
@@ -37,8 +42,31 @@ def create_recruiter_job(
     )
 
 
-def list_public_jobs(db: Session) -> list[Job]:
-    return list_jobs(db)
+def list_public_jobs(db: Session, *, query: JobListQueryParams) -> list[Job]:
+    return list_jobs(
+        db,
+        company_id=query.company_id,
+        title_query=query.title_query,
+        location=query.location,
+        employment_type=query.employment_type,
+        page=query.page,
+        page_size=query.page_size,
+    )
+
+
+def list_recruiter_jobs(
+    db: Session, *, recruiter_user_id: int, query: JobListQueryParams
+) -> list[Job]:
+    return list_jobs_for_recruiter_scope(
+        db,
+        recruiter_user_id=recruiter_user_id,
+        company_id=query.company_id,
+        title_query=query.title_query,
+        location=query.location,
+        employment_type=query.employment_type,
+        page=query.page,
+        page_size=query.page_size,
+    )
 
 
 def get_public_job(db: Session, *, job_id: int) -> Job | None:

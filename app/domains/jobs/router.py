@@ -3,8 +3,13 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_recruiter
 from app.db.session import get_db
-from app.domains.jobs.schemas import JobCreateRequest, JobOut
-from app.domains.jobs.service import create_recruiter_job, get_public_job, list_public_jobs
+from app.domains.jobs.schemas import JobCreateRequest, JobListQueryParams, JobOut
+from app.domains.jobs.service import (
+    create_recruiter_job,
+    get_public_job,
+    list_public_jobs,
+    list_recruiter_jobs,
+)
 from app.models.user import User
 
 router = APIRouter()
@@ -31,8 +36,21 @@ def create_job_endpoint(
 
 
 @router.get("", response_model=list[JobOut])
-def list_jobs_endpoint(db: Session = Depends(get_db)) -> list[JobOut]:
-    jobs = list_public_jobs(db)
+def list_jobs_endpoint(
+    query: JobListQueryParams = Depends(),
+    db: Session = Depends(get_db),
+) -> list[JobOut]:
+    jobs = list_public_jobs(db, query=query)
+    return [JobOut.model_validate(job) for job in jobs]
+
+
+@router.get("/me", response_model=list[JobOut])
+def list_recruiter_jobs_endpoint(
+    query: JobListQueryParams = Depends(),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_recruiter),
+) -> list[JobOut]:
+    jobs = list_recruiter_jobs(db, recruiter_user_id=current_user.id, query=query)
     return [JobOut.model_validate(job) for job in jobs]
 
 
