@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import DateTime, ForeignKey, String, Text, func
@@ -49,6 +49,6 @@ class Report(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
-        onupdate=datetime.now(UTC),
+        onupdate=func.now(),
         nullable=False,
     )
