@@ -52,6 +52,17 @@ class JobPartialUpdateRequest(BaseModel):
     description: str | None = Field(default=None, min_length=1)
     tags: list[str] | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def reject_explicit_null_for_non_nullable_columns(cls, data: object) -> object:
+        """Reject JSON null for columns that are NOT NULL in the DB (omit the field instead)."""
+        if not isinstance(data, dict):
+            return data
+        for key in ("title", "description"):
+            if key in data and data[key] is None:
+                raise ValueError(f"{key} cannot be null")
+        return data
+
     @field_validator("tags")
     @classmethod
     def validate_tags_optional(cls, value: list[str] | None) -> list[str] | None:

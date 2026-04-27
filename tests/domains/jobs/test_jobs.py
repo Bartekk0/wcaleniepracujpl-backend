@@ -597,6 +597,51 @@ def test_recruiter_patch_job_updates_fields_and_tags(
     assert body["moderation_status"] == "pending"
 
 
+def test_recruiter_patch_job_rejects_explicit_null_title_or_description(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="jobs.patch.null@example.com",
+        role=UserRole.RECRUITER,
+    )
+    company_response = client.post(
+        "/api/v1/companies",
+        json={"name": "Null Patch Co"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert company_response.status_code == 201
+    company_id = company_response.json()["id"]
+    create_resp = client.post(
+        "/api/v1/jobs",
+        json={
+            "company_id": company_id,
+            "title": "Has Title",
+            "description": "Has body.",
+            "tags": ["rust"],
+        },
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert create_resp.status_code == 201
+    job_id = create_resp.json()["id"]
+
+    null_title = client.patch(
+        f"/api/v1/jobs/{job_id}",
+        json={"title": None},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert null_title.status_code == 422
+
+    null_desc = client.patch(
+        f"/api/v1/jobs/{job_id}",
+        json={"description": None},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert null_desc.status_code == 422
+
+
 def test_recruiter_can_delete_own_job_and_detail_returns_404(
     client: TestClient,
     db_session: Session,
