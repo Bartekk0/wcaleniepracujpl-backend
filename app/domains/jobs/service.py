@@ -54,7 +54,9 @@ def list_public_jobs(db: Session, *, query: JobListQueryParams) -> list[Job]:
     )
 
 
-def list_recruiter_jobs(db: Session, *, recruiter_user_id: int, query: JobListQueryParams) -> list[Job]:
+def list_recruiter_jobs(
+    db: Session, *, recruiter_user_id: int, query: JobListQueryParams
+) -> list[Job]:
     return list_jobs_for_recruiter_scope(
         db,
         recruiter_user_id=recruiter_user_id,
