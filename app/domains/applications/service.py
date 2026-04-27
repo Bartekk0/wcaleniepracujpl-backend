@@ -1,15 +1,19 @@
+from app.domains.applications.constants import ALLOWED_STATUS_TRANSITIONS
 from sqlalchemy.orm import Session
 
 from app.domains.applications.repository import (
     create_application,
+    get_application_by_id,
     get_application_by_job_and_candidate,
     list_applications_for_candidate,
     list_applications_for_job,
+    update_application_status,
 )
 from app.domains.companies.repository import is_company_member
 from app.domains.jobs.repository import get_job_by_id
 from app.domains.applications.schemas import ApplicationCreateRequest
-from app.models.application import Application
+from app.models.application import Application, ApplicationStatus
+from app.models.user import UserRole
 
 
 def apply_to_job(
@@ -61,3 +65,40 @@ def list_recruiter_applications_for_job(
         raise PermissionError("Recruiter has no access to this job.")
 
     return list_applications_for_job(db, job_id=job_id)
+
+
+def change_application_status(
+    db: Session,
+    *,
+    actor_user_id: int,
+    actor_role: UserRole,
+    application_id: int,
+    new_status: ApplicationStatus,
+) -> Application:
+    application = get_application_by_id(db, application_id=application_id)
+    if application is None:
+        raise ValueError("Application not found.")
+
+    if actor_role == UserRole.RECRUITER:
+        job = get_job_by_id(db, job_id=application.job_id)
+        if job is None:
+            raise ValueError("Job not found.")
+        has_access = job.company.owner_user_id == actor_user_id or is_company_member(
+            db,
+            company_id=job.company_id,
+            recruiter_user_id=actor_user_id,
+        )
+        if not has_access:
+            raise PermissionError("Recruiter has no access to this application.")
+
+    allowed_targets = ALLOWED_STATUS_TRANSITIONS[application.status.value]
+    if new_status.value not in allowed_targets:
+        raise ValueError(
+            f"Invalid status transition: {application.status.value} -> {new_status.value}."
+        )
+
+    return update_application_status(
+        db,
+        application=application,
+        status=new_status,
+    )

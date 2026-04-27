@@ -1,15 +1,20 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_candidate, require_recruiter
+from app.api.deps import require_candidate, require_recruiter, require_roles
 from app.db.session import get_db
-from app.domains.applications.schemas import ApplicationCreateRequest, ApplicationOut
+from app.domains.applications.schemas import (
+    ApplicationCreateRequest,
+    ApplicationOut,
+    ApplicationStatusUpdateRequest,
+)
 from app.domains.applications.service import (
     apply_to_job,
+    change_application_status,
     list_my_applications,
     list_recruiter_applications_for_job,
 )
-from app.models.user import User
+from app.models.user import User, UserRole
 
 router = APIRouter()
 
@@ -64,3 +69,29 @@ def list_job_applications_endpoint(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
     return [ApplicationOut.model_validate(application) for application in applications]
+
+
+@router.patch("/{application_id}/status", response_model=ApplicationOut)
+def update_application_status_endpoint(
+    application_id: int,
+    payload: ApplicationStatusUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.RECRUITER, UserRole.ADMIN)),
+) -> ApplicationOut:
+    try:
+        application = change_application_status(
+            db,
+            actor_user_id=current_user.id,
+            actor_role=current_user.role,
+            application_id=application_id,
+            new_status=payload.status,
+        )
+    except ValueError as exc:
+        message = str(exc)
+        if message in {"Application not found.", "Job not found."}:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message) from exc
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=message) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+    return ApplicationOut.model_validate(application)
