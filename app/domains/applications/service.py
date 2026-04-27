@@ -1,6 +1,10 @@
 from app.domains.applications.constants import ALLOWED_STATUS_TRANSITIONS
 from sqlalchemy.orm import Session
 
+from app.domains.applications.events_repository import (
+    create_application_event,
+    list_application_events,
+)
 from app.domains.applications.repository import (
     create_application,
     get_application_by_id,
@@ -13,6 +17,7 @@ from app.domains.companies.repository import is_company_member
 from app.domains.jobs.repository import get_job_by_id
 from app.domains.applications.schemas import ApplicationCreateRequest
 from app.models.application import Application, ApplicationStatus
+from app.models.application_event import ApplicationEvent
 from app.models.user import UserRole
 
 
@@ -102,8 +107,46 @@ def change_application_status(
             f"Invalid status transition: {application.status.value} -> {new_status.value}."
         )
 
-    return update_application_status(
+    previous_status = application.status
+    updated = update_application_status(
         db,
         application=application,
         status=new_status,
     )
+    create_application_event(
+        db,
+        application=updated,
+        actor_user_id=actor_user_id,
+        from_status=previous_status,
+        to_status=new_status,
+    )
+    db.commit()
+    db.refresh(updated)
+    return updated
+
+
+def get_application_history(
+    db: Session,
+    *,
+    actor_user_id: int,
+    actor_role: UserRole,
+    application_id: int,
+) -> list[ApplicationEvent]:
+    application = get_application_by_id(db, application_id=application_id)
+    if application is None:
+        raise ValueError("Application not found.")
+
+    if actor_role == UserRole.CANDIDATE and application.candidate_user_id != actor_user_id:
+        raise PermissionError("Candidate has no access to this application.")
+
+    if actor_role == UserRole.RECRUITER:
+        _assert_recruiter_can_access_job(
+            db,
+            job_id=application.job_id,
+            recruiter_user_id=actor_user_id,
+        )
+
+    if actor_role not in (UserRole.ADMIN, UserRole.RECRUITER, UserRole.CANDIDATE):
+        raise PermissionError("Insufficient permissions.")
+
+    return list_application_events(db, application_id=application_id)

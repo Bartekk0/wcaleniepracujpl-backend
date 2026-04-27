@@ -62,6 +62,5 @@ def update_application_status(
 ) -> Application:
     application.status = status
     db.add(application)
-    db.commit()
-    db.refresh(application)
+    db.flush()
     return application
