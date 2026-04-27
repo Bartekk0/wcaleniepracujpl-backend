@@ -9,6 +9,10 @@ from app.domains.applications.repository import (
     list_applications_for_job,
     update_application_status,
 )
+from app.domains.notifications.service import (
+    enqueue_application_status_changed_notification,
+    enqueue_application_submitted_notification,
+)
 from app.domains.companies.repository import is_company_member
 from app.domains.jobs.repository import get_job_by_id
 from app.domains.applications.schemas import ApplicationCreateRequest
@@ -34,12 +38,18 @@ def apply_to_job(
     if existing is not None:
         raise ValueError("Application already exists for this job.")
 
-    return create_application(
+    application = create_application(
         db,
         job_id=payload.job_id,
         candidate_user_id=candidate_user_id,
         cover_letter=payload.cover_letter,
     )
+    enqueue_application_submitted_notification(
+        application_id=application.id,
+        job_id=application.job_id,
+        candidate_user_id=application.candidate_user_id,
+    )
+    return application
 
 
 def list_my_applications(db: Session, *, candidate_user_id: int) -> list[Application]:
@@ -102,8 +112,18 @@ def change_application_status(
             f"Invalid status transition: {application.status.value} -> {new_status.value}."
         )
 
-    return update_application_status(
+    previous_status = application.status
+    updated = update_application_status(
         db,
         application=application,
         status=new_status,
     )
+    enqueue_application_status_changed_notification(
+        application_id=updated.id,
+        job_id=updated.job_id,
+        candidate_user_id=updated.candidate_user_id,
+        actor_user_id=actor_user_id,
+        from_status=previous_status,
+        to_status=new_status,
+    )
+    return updated
