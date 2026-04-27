@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.db.session import get_db
+from app.domains.admin.exceptions import AlreadyModeratedError, JobNotFoundError
 from app.domains.admin.schemas import (
     AdminAuditLogOut,
     ModerationActionResponse,
@@ -41,11 +42,10 @@ def approve_job_endpoint(
             job_id=job_id,
             note=payload.note,
         )
-    except ValueError as exc:
-        message = str(exc)
-        if message == "Job not found.":
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message) from exc
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=message) from exc
+    except JobNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except AlreadyModeratedError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
     return ModerationActionResponse(
         job=ModerationJobOut.model_validate(job),
@@ -67,11 +67,10 @@ def reject_job_endpoint(
             job_id=job_id,
             note=payload.note,
         )
-    except ValueError as exc:
-        message = str(exc)
-        if message == "Job not found.":
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message) from exc
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=message) from exc
+    except JobNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except AlreadyModeratedError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
     return ModerationActionResponse(
         job=ModerationJobOut.model_validate(job),

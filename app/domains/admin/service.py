@@ -5,6 +5,7 @@ from app.domains.admin.constants import (
     JOB_AUDIT_TARGET_TYPE,
     JOB_REJECTED_AUDIT_ACTION,
 )
+from app.domains.admin.exceptions import AlreadyModeratedError, JobNotFoundError
 from app.domains.admin.repository import (
     create_admin_audit_log,
     get_job_for_moderation,
@@ -64,9 +65,9 @@ def _moderate_job(
 ) -> tuple[Job, AdminAuditLog]:
     job = get_job_for_moderation(db, job_id=job_id, for_update=True)
     if job is None:
-        raise ValueError("Job not found.")
+        raise JobNotFoundError("Job not found.")
     if job.moderation_status != JobModerationStatus.PENDING:
-        raise ValueError("Job is already moderated.")
+        raise AlreadyModeratedError("Job is already moderated.")
 
     set_job_moderation_result(
         db,
