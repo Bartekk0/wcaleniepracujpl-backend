@@ -1,1 +1,4 @@
+JOB_APPROVED_AUDIT_ACTION = "job_approved"
+JOB_REJECTED_AUDIT_ACTION = "job_rejected"
+JOB_AUDIT_TARGET_TYPE = "job"
 
