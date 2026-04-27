@@ -21,14 +21,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    op.execute("CREATE TYPE job_moderation_status AS ENUM ('PENDING', 'APPROVED', 'REJECTED')")
+    op.execute("CREATE TYPE job_moderation_status AS ENUM ('pending', 'approved', 'rejected')")
 
     op.add_column(
         "jobs",
         sa.Column(
             "moderation_status",
-            sa.Enum("PENDING", "APPROVED", "REJECTED", name="job_moderation_status"),
-            server_default=sa.text("'PENDING'::job_moderation_status"),
+            sa.Enum("pending", "approved", "rejected", name="job_moderation_status"),
+            server_default=sa.text("'pending'::job_moderation_status"),
             nullable=False,
         ),
     )

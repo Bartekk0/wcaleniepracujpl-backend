@@ -32,9 +32,13 @@ class Job(Base):
     employment_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     moderation_status: Mapped["JobModerationStatus"] = mapped_column(
-        Enum(JobModerationStatus, name="job_moderation_status"),
+        Enum(
+            JobModerationStatus,
+            name="job_moderation_status",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
         default=JobModerationStatus.PENDING,
-        server_default=text("'PENDING'::job_moderation_status"),
+        server_default=text("'pending'"),
         nullable=False,
         index=True,
     )
