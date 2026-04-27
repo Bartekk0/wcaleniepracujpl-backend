@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 
+import anyio
 from fastapi import FastAPI
 
 from app.api.router import api_router
@@ -8,7 +9,7 @@ from app.storage.minio_client import ensure_bucket_exists
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    ensure_bucket_exists()
+    await anyio.to_thread.run_sync(ensure_bucket_exists)
     yield
 
 
