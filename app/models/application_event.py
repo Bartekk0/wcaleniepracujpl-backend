@@ -1,6 +1,7 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Text, func
+from sqlalchemy import DateTime, ForeignKey, Text, func
+from sqlalchemy.dialects.postgresql import ENUM as PGEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -22,11 +23,11 @@ class ApplicationEvent(Base):
         index=True,
     )
     from_status: Mapped[ApplicationStatus] = mapped_column(
-        Enum(ApplicationStatus, name="application_status", create_type=False),
+        PGEnum(ApplicationStatus, name="application_status", create_type=False),
         nullable=False,
     )
     to_status: Mapped[ApplicationStatus] = mapped_column(
-        Enum(ApplicationStatus, name="application_status", create_type=False),
+        PGEnum(ApplicationStatus, name="application_status", create_type=False),
         nullable=False,
     )
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
