@@ -36,4 +36,4 @@ class ApplicationEvent(Base):
         nullable=False,
     )
 
-    application = relationship("Application")
+    application = relationship("Application", back_populates="events")
