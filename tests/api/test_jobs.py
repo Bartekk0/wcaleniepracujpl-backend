@@ -497,3 +497,202 @@ def test_job_detail_returns_404_for_missing_job(client: TestClient) -> None:
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Job not found."
+
+
+def test_recruiter_put_job_resets_moderation_and_replaces_tags(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="jobs.put.owner@example.com",
+        role=UserRole.RECRUITER,
+    )
+    company_response = client.post(
+        "/api/v1/companies",
+        json={"name": "Put Jobs Co"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert company_response.status_code == 201
+    company_id = company_response.json()["id"]
+    create_resp = client.post(
+        "/api/v1/jobs",
+        json={
+            "company_id": company_id,
+            "title": "Original Title",
+            "description": "Original desc.",
+            "tags": ["python"],
+        },
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert create_resp.status_code == 201
+    job_id = create_resp.json()["id"]
+    _approve_job(client, db_session, job_id)
+
+    detail_before = client.get(f"/api/v1/jobs/{job_id}")
+    assert detail_before.status_code == 200
+
+    put_resp = client.put(
+        f"/api/v1/jobs/{job_id}",
+        json={
+            "title": "Replaced Title",
+            "location": "Berlin",
+            "employment_type": "contract",
+            "description": "Updated description.",
+            "tags": ["django", "python"],
+        },
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert put_resp.status_code == 200
+    body = put_resp.json()
+    assert body["title"] == "Replaced Title"
+    assert body["location"] == "Berlin"
+    assert body["employment_type"] == "contract"
+    assert body["moderation_status"] == "pending"
+    assert body["tags"] == ["django", "python"]
+
+    assert client.get(f"/api/v1/jobs/{job_id}").status_code == 404
+
+
+def test_recruiter_patch_job_updates_fields_and_tags(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="jobs.patch.owner@example.com",
+        role=UserRole.RECRUITER,
+    )
+    company_response = client.post(
+        "/api/v1/companies",
+        json={"name": "Patch Jobs Co"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert company_response.status_code == 201
+    company_id = company_response.json()["id"]
+    create_resp = client.post(
+        "/api/v1/jobs",
+        json={
+            "company_id": company_id,
+            "title": "Patchable",
+            "description": "Desc.",
+            "tags": ["java"],
+        },
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert create_resp.status_code == 201
+    job_id = create_resp.json()["id"]
+
+    patch_resp = client.patch(
+        f"/api/v1/jobs/{job_id}",
+        json={"title": "Patched Title", "tags": ["kotlin"]},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert patch_resp.status_code == 200
+    body = patch_resp.json()
+    assert body["title"] == "Patched Title"
+    assert body["tags"] == ["kotlin"]
+    assert body["moderation_status"] == "pending"
+
+
+def test_recruiter_can_delete_own_job_and_detail_returns_404(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="jobs.del.owner@example.com",
+        role=UserRole.RECRUITER,
+    )
+    company_response = client.post(
+        "/api/v1/companies",
+        json={"name": "Del Jobs Co"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert company_response.status_code == 201
+    company_id = company_response.json()["id"]
+    create_resp = client.post(
+        "/api/v1/jobs",
+        json={
+            "company_id": company_id,
+            "title": "To Delete",
+            "description": "Bye.",
+        },
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert create_resp.status_code == 201
+    job_id = create_resp.json()["id"]
+    _approve_job(client, db_session, job_id)
+
+    assert client.get(f"/api/v1/jobs/{job_id}").status_code == 200
+
+    delete_resp = client.delete(
+        f"/api/v1/jobs/{job_id}",
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert delete_resp.status_code == 204
+
+    assert client.get(f"/api/v1/jobs/{job_id}").status_code == 404
+
+
+def test_other_recruiter_cannot_put_patch_delete_job(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, owner_token = _create_user_and_login(
+        client,
+        db_session,
+        email="jobs.crud.owner@example.com",
+        role=UserRole.RECRUITER,
+    )
+    _, outsider_token = _create_user_and_login(
+        client,
+        db_session,
+        email="jobs.crud.outsider@example.com",
+        role=UserRole.RECRUITER,
+    )
+    company_response = client.post(
+        "/api/v1/companies",
+        json={"name": "Crud Jobs Co"},
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    assert company_response.status_code == 201
+    company_id = company_response.json()["id"]
+    create_resp = client.post(
+        "/api/v1/jobs",
+        json={
+            "company_id": company_id,
+            "title": "Protected Job",
+            "description": "Private listing.",
+        },
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    assert create_resp.status_code == 201
+    job_id = create_resp.json()["id"]
+
+    replace_body = {
+        "title": "Nope",
+        "description": "Should fail.",
+        "tags": [],
+    }
+    put_resp = client.put(
+        f"/api/v1/jobs/{job_id}",
+        json=replace_body,
+        headers={"Authorization": f"Bearer {outsider_token}"},
+    )
+    patch_resp = client.patch(
+        f"/api/v1/jobs/{job_id}",
+        json={"title": "Also nope"},
+        headers={"Authorization": f"Bearer {outsider_token}"},
+    )
+    delete_resp = client.delete(
+        f"/api/v1/jobs/{job_id}",
+        headers={"Authorization": f"Bearer {outsider_token}"},
+    )
+
+    assert put_resp.status_code == 403
+    assert patch_resp.status_code == 403
+    assert delete_resp.status_code == 403
