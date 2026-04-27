@@ -666,4 +666,4 @@ def test_application_status_update_returns_404_when_application_job_missing(
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] in ["Job not found.", "Application not found."]
+    assert response.json()["detail"] == "Application not found."
