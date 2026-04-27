@@ -42,7 +42,6 @@ def create_recruiter_job(
         description=payload.description,
     )
     replace_job_tags(db, job_id=job.id, tag_slugs=payload.tags)
-    db.refresh(job)
     return job
 
 
