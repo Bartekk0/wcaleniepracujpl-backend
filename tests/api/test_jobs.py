@@ -27,6 +27,21 @@ def _create_user_and_login(
     return user.id, login_response.json()["access_token"]
 
 
+def _approve_job(client: TestClient, db_session: Session, job_id: int) -> None:
+    _, admin_token = _create_user_and_login(
+        client,
+        db_session,
+        email=f"jobs.admin.{job_id}@example.com",
+        role=UserRole.ADMIN,
+    )
+    response = client.post(
+        f"/api/v1/admin/moderation/jobs/{job_id}/approve",
+        json={"note": "Approved for tests."},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200
+
+
 def test_recruiter_can_create_job_for_owned_company(
     client: TestClient,
     db_session: Session,
@@ -63,6 +78,7 @@ def test_recruiter_can_create_job_for_owned_company(
     assert payload["title"] == "Backend Engineer"
     assert payload["location"] == "Remote"
     assert payload["employment_type"] == "full-time"
+    assert payload["tags"] == []
 
 
 def test_job_create_requires_recruiter_role(
@@ -185,6 +201,7 @@ def test_public_and_candidate_can_list_and_read_job_details(
     )
     assert create_job_response.status_code == 201
     job_id = create_job_response.json()["id"]
+    _approve_job(client, db_session, job_id)
 
     public_list_response = client.get("/api/v1/jobs")
     candidate_list_response = client.get(
@@ -196,6 +213,7 @@ def test_public_and_candidate_can_list_and_read_job_details(
     assert public_list_response.status_code == 200
     assert len(public_list_response.json()) == 1
     assert public_list_response.json()[0]["title"] == "Public Backend Engineer"
+    assert public_list_response.json()[0]["tags"] == []
     assert candidate_list_response.status_code == 200
     assert len(candidate_list_response.json()) == 1
     assert candidate_list_response.json()[0]["id"] == job_id
@@ -336,6 +354,8 @@ def test_jobs_endpoint_supports_filters_and_pagination(
     assert second_job.status_code == 201
     first_job_id = first_job.json()["id"]
     second_job_id = second_job.json()["id"]
+    _approve_job(client, db_session, first_job_id)
+    _approve_job(client, db_session, second_job_id)
 
     title_filtered = client.get("/api/v1/jobs?title_query=Python")
     location_filtered = client.get("/api/v1/jobs?location=Krakow")
@@ -353,6 +373,110 @@ def test_jobs_endpoint_supports_filters_and_pagination(
     assert len(company_filtered.json()) == 2
     assert paginated.status_code == 200
     assert len(paginated.json()) == 1
+
+
+def test_pending_job_not_listed_publicly_and_detail_returns_404(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="jobs.pending.pub@example.com",
+        role=UserRole.RECRUITER,
+    )
+    company_response = client.post(
+        "/api/v1/companies",
+        json={"name": "Pending Pub Co"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert company_response.status_code == 201
+    company_id = company_response.json()["id"]
+    job_response = client.post(
+        "/api/v1/jobs",
+        json={
+            "company_id": company_id,
+            "title": "Awaiting moderation",
+            "description": "Not visible publicly yet.",
+        },
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert job_response.status_code == 201
+    job_id = job_response.json()["id"]
+
+    list_resp = client.get("/api/v1/jobs")
+    detail_resp = client.get(f"/api/v1/jobs/{job_id}")
+    assert list_resp.status_code == 200
+    assert list_resp.json() == []
+    assert detail_resp.status_code == 404
+
+
+def test_public_jobs_can_filter_by_tags_and_pending_jobs_are_excluded(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="jobs.tags.owner@example.com",
+        role=UserRole.RECRUITER,
+    )
+    company_response = client.post(
+        "/api/v1/companies",
+        json={"name": "Tagged Jobs Co"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert company_response.status_code == 201
+    company_id = company_response.json()["id"]
+
+    job_a = client.post(
+        "/api/v1/jobs",
+        json={
+            "company_id": company_id,
+            "title": "Staff Engineer",
+            "description": "Senior backend.",
+            "tags": ["python", "backend"],
+        },
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    job_b = client.post(
+        "/api/v1/jobs",
+        json={
+            "company_id": company_id,
+            "title": "Rust Engineer",
+            "description": "Systems.",
+            "tags": ["rust"],
+        },
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    pending = client.post(
+        "/api/v1/jobs",
+        json={
+            "company_id": company_id,
+            "title": "Draft Role",
+            "description": "Still pending moderation.",
+            "tags": ["python"],
+        },
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert job_a.status_code == 201
+    assert job_b.status_code == 201
+    assert pending.status_code == 201
+    job_a_id = job_a.json()["id"]
+    job_b_id = job_b.json()["id"]
+    _approve_job(client, db_session, job_a_id)
+    _approve_job(client, db_session, job_b_id)
+
+    python_backend = client.get("/api/v1/jobs", params=[("tag", "python"), ("tag", "backend")])
+    rust_only = client.get("/api/v1/jobs", params=[("tag", "rust")])
+    python_any = client.get("/api/v1/jobs", params=[("tag", "python")])
+
+    assert python_backend.status_code == 200
+    assert [j["id"] for j in python_backend.json()] == [job_a_id]
+    assert rust_only.status_code == 200
+    assert [j["id"] for j in rust_only.json()] == [job_b_id]
+    assert python_any.status_code == 200
+    assert [j["id"] for j in python_any.json()] == [job_a_id]
 
 
 def test_job_detail_returns_404_for_missing_job(client: TestClient) -> None:

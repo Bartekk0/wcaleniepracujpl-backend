@@ -64,6 +64,19 @@ def test_recruiter_publish_candidate_apply_recruiter_review_flow(
     assert job_response.status_code == 201
     job_id = job_response.json()["id"]
 
+    _, admin_token = _create_user_and_login(
+        client,
+        db_session,
+        email="e2e.admin.approve@example.com",
+        role=UserRole.ADMIN,
+    )
+    approve_response = client.post(
+        f"/api/v1/admin/moderation/jobs/{job_id}/approve",
+        json={"note": "Publish for e2e."},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert approve_response.status_code == 200
+
     apply_response = client.post(
         "/api/v1/applications",
         json={"job_id": job_id, "cover_letter": "I am interested."},

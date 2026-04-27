@@ -28,9 +28,25 @@ def _create_user_and_login(
     return user.id, login_response.json()["access_token"]
 
 
+def _approve_job(client: TestClient, db_session: Session, job_id: int) -> None:
+    _, admin_token = _create_user_and_login(
+        client,
+        db_session,
+        email=f"apps.admin.{job_id}.approve@example.com",
+        role=UserRole.ADMIN,
+    )
+    approve_response = client.post(
+        f"/api/v1/admin/moderation/jobs/{job_id}/approve",
+        json={"note": "Approved for tests."},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert approve_response.status_code == 200
+
+
 def _create_job_for_recruiter(
     client: TestClient,
-    token: str,
+    db_session: Session,
+    recruiter_token: str,
     *,
     company_name: str,
     job_title: str,
@@ -38,7 +54,7 @@ def _create_job_for_recruiter(
     company_response = client.post(
         "/api/v1/companies",
         json={"name": company_name},
-        headers={"Authorization": f"Bearer {token}"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
     )
     assert company_response.status_code == 201
     company_id = company_response.json()["id"]
@@ -49,10 +65,12 @@ def _create_job_for_recruiter(
             "title": job_title,
             "description": f"{job_title} description",
         },
-        headers={"Authorization": f"Bearer {token}"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
     )
     assert job_response.status_code == 201
-    return job_response.json()["id"]
+    job_id = job_response.json()["id"]
+    _approve_job(client, db_session, job_id)
+    return job_id
 
 
 def test_candidate_can_apply_and_list_own_applications(
@@ -73,6 +91,7 @@ def test_candidate_can_apply_and_list_own_applications(
     )
     job_id = _create_job_for_recruiter(
         client,
+        db_session,
         recruiter_token,
         company_name="Apps Co",
         job_title="Python Engineer",
@@ -115,6 +134,7 @@ def test_recruiter_can_list_applications_for_owned_job(
     )
     job_id = _create_job_for_recruiter(
         client,
+        db_session,
         recruiter_token,
         company_name="View Co",
         job_title="Data Engineer",
@@ -156,6 +176,7 @@ def test_application_endpoints_support_status_filters(
     )
     job_id = _create_job_for_recruiter(
         client,
+        db_session,
         recruiter_token,
         company_name="Filter Apps Co",
         job_title="Filter Apps Job",
@@ -222,6 +243,7 @@ def test_application_endpoints_enforce_role_guards(
     )
     job_id = _create_job_for_recruiter(
         client,
+        db_session,
         recruiter_token,
         company_name="Guard Co",
         job_title="Guarded Job",
@@ -271,6 +293,7 @@ def test_application_status_filter_rejects_invalid_values(
     )
     job_id = _create_job_for_recruiter(
         client,
+        db_session,
         recruiter_token,
         company_name="Invalid Filter Co",
         job_title="Invalid Filter Job",
@@ -312,6 +335,7 @@ def test_candidate_cannot_apply_twice_to_same_job(
     )
     job_id = _create_job_for_recruiter(
         client,
+        db_session,
         recruiter_token,
         company_name="Duplicate Co",
         job_title="Duplicate Guard Job",
@@ -357,6 +381,7 @@ def test_recruiter_cannot_view_applications_for_unowned_job(
     )
     job_id = _create_job_for_recruiter(
         client,
+        db_session,
         owner_recruiter_token,
         company_name="Owner Protected Co",
         job_title="Owner Protected Job",
@@ -395,6 +420,7 @@ def test_recruiter_can_transition_application_status_for_owned_job(
     )
     job_id = _create_job_for_recruiter(
         client,
+        db_session,
         recruiter_token,
         company_name="Status Flow Co",
         job_title="Status Flow Job",
@@ -442,6 +468,7 @@ def test_application_status_forbids_invalid_transition(
     )
     job_id = _create_job_for_recruiter(
         client,
+        db_session,
         recruiter_token,
         company_name="Invalid Flow Co",
         job_title="Invalid Flow Job",
@@ -498,6 +525,7 @@ def test_application_status_update_role_guards_and_access_control(
 
     job_id = _create_job_for_recruiter(
         client,
+        db_session,
         owner_recruiter_token,
         company_name="Guard Status Co",
         job_title="Guard Status Job",
@@ -573,6 +601,7 @@ def test_application_status_update_returns_404_when_application_job_missing(
     )
     job_id = _create_job_for_recruiter(
         client,
+        db_session,
         recruiter_token,
         company_name="Missing Job Co",
         job_title="Missing Job Status Flow",
@@ -618,6 +647,7 @@ def test_application_history_contains_submission_and_status_transition_events(
     )
     job_id = _create_job_for_recruiter(
         client,
+        db_session,
         recruiter_token,
         company_name="History Co",
         job_title="History Job",
@@ -695,6 +725,7 @@ def test_application_history_access_boundaries(
 
     job_id = _create_job_for_recruiter(
         client,
+        db_session,
         owner_recruiter_token,
         company_name="History ACL Co",
         job_title="History ACL Job",
