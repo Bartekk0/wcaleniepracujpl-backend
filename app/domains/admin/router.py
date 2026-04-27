@@ -15,12 +15,14 @@ from app.models.user import User
 router = APIRouter()
 
 
-@router.get("/moderation/jobs", response_model=list[ModerationJobOut])
+@router.get(
+    "/moderation/jobs",
+    response_model=list[ModerationJobOut],
+    dependencies=[Depends(require_admin)],
+)
 def list_moderation_jobs_endpoint(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
 ) -> list[ModerationJobOut]:
-    _ = current_user
     jobs = get_moderation_queue(db)
     return [ModerationJobOut.model_validate(job) for job in jobs]
 
