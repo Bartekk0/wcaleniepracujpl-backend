@@ -9,6 +9,7 @@ from app.domains.applications.schemas import (
     ApplicationEventOut,
     ApplicationOut,
     ApplicationStatusUpdateRequest,
+    CvDownloadPresignResponse,
     CvPresignRequest,
     CvPresignResponse,
 )
@@ -18,6 +19,7 @@ from app.domains.applications.service import (
     get_application_history,
     list_my_applications,
     list_recruiter_applications_for_job,
+    presign_application_cv_download,
 )
 from app.models.application import ApplicationStatus
 from app.models.user import User, UserRole
@@ -74,6 +76,37 @@ def presign_cv_upload_endpoint(
     return CvPresignResponse(
         object_key=object_key,
         upload_url=upload_url,
+        expires_in_seconds=expires,
+    )
+
+
+@router.get("/{application_id}/cv-download", response_model=CvDownloadPresignResponse)
+def presign_cv_download_endpoint(
+    application_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_roles(UserRole.CANDIDATE, UserRole.RECRUITER, UserRole.ADMIN)
+    ),
+) -> CvDownloadPresignResponse:
+    try:
+        download_url, expires = presign_application_cv_download(
+            db,
+            actor_user_id=current_user.id,
+            actor_role=current_user.role,
+            application_id=application_id,
+        )
+    except ValueError as exc:
+        message = str(exc)
+        if message == "Application not found.":
+            raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=message) from exc
+        if message == "No CV uploaded for this application.":
+            raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=message) from exc
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=message) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+    return CvDownloadPresignResponse(
+        download_url=download_url,
         expires_in_seconds=expires,
     )
 

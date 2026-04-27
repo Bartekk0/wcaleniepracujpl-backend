@@ -21,6 +21,11 @@ class CvPresignResponse(BaseModel):
     expires_in_seconds: int
 
 
+class CvDownloadPresignResponse(BaseModel):
+    download_url: str
+    expires_in_seconds: int
+
+
 class ApplicationOut(BaseModel):
     id: int
     job_id: int

@@ -41,3 +41,11 @@ def presigned_put_object(bucket_name: str, object_name: str, *, expires_seconds:
         object_name,
         expires=timedelta(seconds=expires_seconds),
     )
+
+
+def presigned_get_object(bucket_name: str, object_name: str, *, expires_seconds: int = 3600) -> str:
+    return client.presigned_get_object(
+        bucket_name,
+        object_name,
+        expires=timedelta(seconds=expires_seconds),
+    )
