@@ -106,7 +106,9 @@ def update_application_status_endpoint(
 def get_application_history_endpoint(
     application_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.CANDIDATE, UserRole.RECRUITER)),
+    current_user: User = Depends(
+        require_roles(UserRole.CANDIDATE, UserRole.RECRUITER, UserRole.ADMIN)
+    ),
 ) -> list[ApplicationEventOut]:
     try:
         events = get_application_history(

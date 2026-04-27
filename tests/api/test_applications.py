@@ -544,6 +544,62 @@ def test_application_history_endpoint_enforces_access_control(
     assert other_candidate_history_response.json()["detail"] == "Candidate has no access to this application."
 
 
+def test_admin_can_access_application_history(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, recruiter_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.history.admin.owner@example.com",
+        role=UserRole.RECRUITER,
+    )
+    _, candidate_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.history.admin.candidate@example.com",
+        role=UserRole.CANDIDATE,
+    )
+    _, admin_token = _create_user_and_login(
+        client,
+        db_session,
+        email="apps.history.admin@example.com",
+        role=UserRole.ADMIN,
+    )
+
+    job_id = _create_job_for_recruiter(
+        client,
+        recruiter_token,
+        company_name="History Admin Co",
+        job_title="History Admin Job",
+    )
+    apply_response = client.post(
+        "/api/v1/applications",
+        json={"job_id": job_id},
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+    assert apply_response.status_code == 201
+    application_id = apply_response.json()["id"]
+
+    status_response = client.patch(
+        f"/api/v1/applications/{application_id}/status",
+        json={"status": "reviewing"},
+        headers={"Authorization": f"Bearer {recruiter_token}"},
+    )
+    assert status_response.status_code == 200
+
+    admin_history_response = client.get(
+        f"/api/v1/applications/{application_id}/history",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert admin_history_response.status_code == 200
+    history = admin_history_response.json()
+    assert len(history) == 1
+    assert history[0]["from_status"] == "submitted"
+    assert history[0]["to_status"] == "reviewing"
+
+
 def test_application_status_update_returns_404_for_missing_application(
     client: TestClient,
     db_session: Session,
